@@ -1,10 +1,9 @@
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Scanner;
 
-public class GameManager implements AcceptListenerI, ConnectionListenerI, Runnable {
+public class GameManager implements ServerSocketListenerI, ConnectionListenerI, Runnable {
 	public GameManager(String tracker_host, int tracker_port, String player_id) {
 		tracker_host_ = tracker_host;
 		tracker_port_ = tracker_port;
@@ -12,20 +11,26 @@ public class GameManager implements AcceptListenerI, ConnectionListenerI, Runnab
 		N_ = 0;
 		K_ = 0;
 		
+		server_ = new ListeningSocket(0, this);
+		
 		role_manager_ = new PlayerManager(this);
 		player_list_ = new ArrayList<Player>();
-		players_ = new HashMap<Connection, Player>();
-	}
-
-	public void setConnectionManager(ConnectionManager connection_manager) {
-		connection_manager_ = connection_manager;
 	}
 
 	public String getPlayerId() { return player_id_; }
-	public String getLocalHost() { return connection_manager_.getLocalHost(); }
-	public int getListeningPort() { return connection_manager_.getListeningPort(); }
-	public String getTrackerHost() { return tracker_host_; }
-	public int getTrackerPort() { return tracker_port_; }
+	public String getLocalHost() { return server_.getLocalHost(); }
+	public int getListeningPort() { return server_.getListeningPort(); }
+	
+	public boolean start() {
+		if (!server_.start()) 
+			return false;
+		server_.stop();
+		connectTracker();
+		
+		thread_ = new Thread(this);
+		thread_.start();
+		return true;
+	}
 	
 	public void stop() {
 		try {
@@ -33,9 +38,15 @@ public class GameManager implements AcceptListenerI, ConnectionListenerI, Runnab
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-		connection_manager_.stop();
-		for (Player player : player_list_) {
-			player.stop();
+		synchronized (this) {
+			if (tracker_ != null)
+				tracker_.stop();
+			tracker_ = null;
+			for (Player player : player_list_) {
+				player.getConnection().set_listener(null);
+				player.getConnection().stop();
+			}
+			server_.stop();
 		}
 	}
 	
@@ -51,31 +62,41 @@ public class GameManager implements AcceptListenerI, ConnectionListenerI, Runnab
 	
 
 	@Override
-	public boolean OnAccepted(Connection connection) {
-		connection.set_listener(this);
-		return role_manager_.OnAccepted(connection);
-	}
-
-	@Override
-	public void OnConnected(Connection connection) {
-		connection.set_listener(this);
-		role_manager_.OnConnected(connection);
+	public void onAccepted(Connection connection) {
+		Player player = new Player(connection, this);
+		if (connection.start()) {
+			synchronized (this) {
+				player_list_.add(player);
+				role_manager_.onAccepted(player);
+			}
+		}
 	}
 	
 	@Override
-	public void OnDisconnected(Connection connection) {
-		role_manager_.OnDisconnected(connection);
-		Player player = players_.get(connection);
-		if (player != null) {
-			players_.remove(connection);
-			player_list_.remove(player);
-			player.stop();
+	public void onDisconnected(Connection connection) {
+		synchronized (this) {
+			tracker_ = null;
+			role_manager_.onTrackerDown();
 		}
 	}
 
 	@Override
-	public void OnMessage(Connection connection, ByteBuffer buffer) {
-		role_manager_.OnMessage(connection, buffer);
+	public void onData(Connection connection, ByteBuffer buffer) {
+		System.out.println("GameManager::onData()");
+		MsgType msg_type = MsgType.values()[buffer.getInt()];
+		switch (msg_type) {
+		case kInfo:
+			InfoMsg msg = new InfoMsg(buffer);
+			if (msg.deserialize()) {
+				synchronized (this) {
+					role_manager_.handle(msg);
+				}
+			}
+			break;
+		default:
+			System.out.format("GameManager::onData() unexpected msg_type[%s]\n", msg_type);
+			break;
+		}
 	}
 	
 	public void inilialize(int N, int K) {
@@ -86,20 +107,47 @@ public class GameManager implements AcceptListenerI, ConnectionListenerI, Runnab
 		}
 	}
 	
-	public Player getPlayer(Connection connection) {
-		return players_.get(connection);
-	}
 	public Player getPlayer(String host, int listening_port) {
-		for (Player player : player_list_) {
-			if (player.getState().host == host && player.getState().port == listening_port) {
-				return player;
+		synchronized (this) {
+			for (Player player : player_list_) {
+				if (player.getState().host == host && player.getState().port == listening_port) {
+					return player;
+				}
 			}
 		}
 		return null;
 	}
 	
-	public void connect(String host, int port) {
-		connection_manager_.connect(host, port);
+	public Connection getTracker() { return tracker_; }
+	
+	public void connectTracker() {
+		if (tracker_ == null) {
+			tracker_ = new Connection(tracker_host_, tracker_port_);
+			tracker_.set_listener(this);
+			if (!tracker_.start())
+				stop();
+		}
+	}
+	
+	public void disconnectTracker() {
+		if (tracker_ != null) {
+			tracker_.stop();
+			tracker_ = null;
+			System.out.println("PlayerManager::OnMessage() disconnected from Tracker");
+		}
+	}
+	
+	public Player connect(String host, int port) {
+		Connection connection = new Connection(host, port);		
+		Player player = new Player(connection, this);
+		player.setState(new PlayerState());
+		player.getState().host = host;
+		player.getState().port = port;
+		connection.set_listener(player);
+		int i;
+		for (i = 0; i < 5 && !connection.start(); ++i) {}
+		if (i == 5) return null;
+		return player;
 	}
 	
 	public void promotePrimary(PlayerManager pm) {
@@ -107,6 +155,7 @@ public class GameManager implements AcceptListenerI, ConnectionListenerI, Runnab
 		PrimaryManager new_rm = new PrimaryManager(this);
 		new_rm.promote(pm);
 		role_manager_ = new_rm;
+		server_.start();
 	}
 	
 	public void promoteSecondary(PlayerManager pm) {
@@ -116,17 +165,31 @@ public class GameManager implements AcceptListenerI, ConnectionListenerI, Runnab
 		role_manager_ = new_rm;
 	}
 	
-	public boolean Handle(Connection connection, PlayerJoinMsg msg) {
-		if (msg.deserialize()) {
-			String host = msg.getHost();
-			PlayerState peer = new PlayerState(msg.getId(), host, msg.getListeningPort());
-			Player player = new Player(connection, peer);
-			players_.put(connection, player);
-			player_list_.add(player);
-			player.start();
-			return true;
+	public void onDisconnected(Player player) {
+		synchronized (this) {
+			role_manager_.onDisconnected(player);
 		}
-		return false;
+	}
+	public void handle(Player player, InfoMsg info) {
+		if (info.deserialize()) {
+			synchronized (this) {
+				role_manager_.handle(info);
+			}
+		}
+	}
+	public boolean handle(Player player, PlayerJoinMsg msg) {
+		synchronized (this) {
+			if (msg.deserialize()) {
+				PlayerState state = new PlayerState(msg.getId(), msg.getHost(), msg.getListeningPort());
+				player.setState(state);
+				role_manager_.onJoined(player);
+				return true;
+			} else {
+				player.getConnection().stop();
+				player_list_.remove(player);
+				return false;
+			}
+		}
 	}
 	
 	private String tracker_host_;
@@ -135,9 +198,11 @@ public class GameManager implements AcceptListenerI, ConnectionListenerI, Runnab
 	private int N_;
 	private int K_;
 	
-	private ConnectionManager connection_manager_;
+	private ListeningSocket server_;
+	private Connection tracker_;
+	
+	private Thread thread_;
 	
 	private RoleManager role_manager_;
 	private ArrayList<Player> player_list_;
-	private HashMap<Connection, Player> players_;
 }

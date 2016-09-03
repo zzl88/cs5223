@@ -10,24 +10,13 @@ public class Tracker {
 		int N = Integer.parseInt(args[1]);
 		int K = Integer.parseInt(args[2]);
 		
-		TrackerImpl tracker = new TrackerImpl(N, K);
-		ConnectionManager connection_manager = new ConnectionManager(port, tracker);
-		
-		if (!connection_manager.initialize()) return;
-		
-		Thread t = new Thread(connection_manager);
-		t.start();
+		TrackerImpl tracker = new TrackerImpl(port, N, K);
+		tracker.start();
 		
 		Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
 			public void run() {
 				System.out.println("Tracker::main() !Interrupted!");
-				connection_manager.stop();
-				
-				try {
-					t.join(1000);
-				} catch (InterruptedException ex) {
-					ex.printStackTrace();
-				}
+				tracker.stop();
 			}
 		}));
 	}
