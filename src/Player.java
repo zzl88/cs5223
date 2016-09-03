@@ -1,6 +1,6 @@
 
 public class Player implements Runnable {
-	public Player(Connection connection, PeerState state) {
+	public Player(Connection connection, PlayerState state) {
 		connection_ = connection;
 		state_ = state;
 		running_ = true;
@@ -21,7 +21,7 @@ public class Player implements Runnable {
 	}
 	
 	public Connection getConnection() { return connection_; }
-	public PeerState getState() { return state_; }
+	public PlayerState getState() { return state_; }
 	
 	@Override
 	public void run() {
@@ -32,7 +32,7 @@ public class Player implements Runnable {
 	}
 	
 	private Connection connection_;
-	private PeerState state_;
+	private PlayerState state_;
 	private volatile boolean running_;
 	
 	private Thread thread_;

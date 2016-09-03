@@ -2,7 +2,7 @@
 public class Game {
 	public static void main(String[] args) {
 		if (args.length != 3) {
-			System.out.println("Usage: java Game [port] [N] [K]");
+			System.out.println("Usage: java Game [tracker_ip] [tracker_port] [id]");
 			return;
 		}
 
@@ -17,16 +17,21 @@ public class Game {
 		if (!connection_manager.initialize()) return;
 		manager.connect(ip, port);
 		
-		Thread t = new Thread(connection_manager);
-		t.start();
+		Thread t1 = new Thread(manager);
+		t1.start();
+		Thread t2 = new Thread(connection_manager);
+		t2.start();
+
 				
 		Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
 			public void run() {
 				System.out.println("Game::main() !Interrupted!");
 				connection_manager.stop();
+				manager.stop();
 				
 				try {
-					t.join(1000);
+					t1.join(1000);
+					t2.join(1000);
 				} catch (InterruptedException ex) {
 					ex.printStackTrace();
 				}

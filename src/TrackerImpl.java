@@ -5,7 +5,6 @@ import java.util.ArrayList;
 public class TrackerImpl implements AcceptListenerI, ConnectionListenerI {
 	public TrackerImpl(int N, int K) {
 		info_ = new InfoMsg(N, K);
-		info_.serialize();
 		connections_ = new ArrayList<Connection>();
 	}
 
@@ -13,7 +12,7 @@ public class TrackerImpl implements AcceptListenerI, ConnectionListenerI {
 	public boolean OnAccepted(Connection connection) {
 		connections_.add(connection);
 		connection.set_listener(this);
-		System.out.println("TrackerImpl::OnAccepted() Client accepted count: " + connections_.size());
+		System.out.format("TrackerImpl::OnAccepted() Client accepted count[%s]\n", connections_.size());
 		connection.write(info_);
 		return true;
 	}
@@ -26,7 +25,11 @@ public class TrackerImpl implements AcceptListenerI, ConnectionListenerI {
 	@Override
 	public void OnDisconnected(Connection connection) {
 		connections_.remove(connection);
-		System.out.println("TrackerImpl::OnDisconnected() Client disconnected count: " + connections_.size());
+		System.out.format("TrackerImpl::OnDisconnected() Client disconnected count[%s]\n", connections_.size());
+		if (connections_.isEmpty()) {
+			info_.clearPeers();
+			System.out.println("TrackerImpl::OnDisconnected() clear peers"); 
+		}
 	}
 
 	@Override
@@ -38,11 +41,10 @@ public class TrackerImpl implements AcceptListenerI, ConnectionListenerI {
 			if (msg.deserialize()) {
 				info_ = msg;
 				try {
-					System.out.println("TrackerImpl::OnMessage() Updated game info from "
-							+ connection.socket().getRemoteAddress());
+					System.out.format("TrackerImpl::OnMessage() kInfo remote[%s]\n",
+							connection.socket().getRemoteAddress());
 					for (TrackerPeerInfo peer : info_.getPeers()) {
-						System.out.println(
-								"TrackerImpl::OnMessage() peer host[" + peer.host + "] port[" + peer.port + "]");
+						System.out.format("    peer host[%s] port[%s]\n", peer.host, peer.port);
 					}
 				} catch (IOException e) {
 					e.printStackTrace();

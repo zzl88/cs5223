@@ -1,8 +1,10 @@
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Hashtable;
+import java.util.HashMap;
+import java.util.Scanner;
 
-public class GameManager implements AcceptListenerI, ConnectionListenerI {
+public class GameManager implements AcceptListenerI, ConnectionListenerI, Runnable {
 	public GameManager(String tracker_host, int tracker_port, String player_id) {
 		tracker_host_ = tracker_host;
 		tracker_port_ = tracker_port;
@@ -12,7 +14,7 @@ public class GameManager implements AcceptListenerI, ConnectionListenerI {
 		
 		role_manager_ = new PlayerManager(this);
 		player_list_ = new ArrayList<Player>();
-		players_ = new Hashtable<Connection, Player>();
+		players_ = new HashMap<Connection, Player>();
 	}
 
 	public void setConnectionManager(ConnectionManager connection_manager) {
@@ -26,12 +28,28 @@ public class GameManager implements AcceptListenerI, ConnectionListenerI {
 	public int getTrackerPort() { return tracker_port_; }
 	
 	public void stop() {
+		try {
+			System.in.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 		connection_manager_.stop();
 		for (Player player : player_list_) {
 			player.stop();
 		}
 	}
 	
+	public void run() {
+		System.out.println("GameManager::run() started");
+		Scanner sc = new Scanner(System.in);
+		while (sc.hasNext()) {
+			System.out.println(sc.nextLine());
+		}
+		sc.close();
+		System.out.println("GameManager::run() stopped");
+	}
+	
+
 	@Override
 	public boolean OnAccepted(Connection connection) {
 		connection.set_listener(this);
@@ -64,7 +82,7 @@ public class GameManager implements AcceptListenerI, ConnectionListenerI {
 		if (N_ == 0 && K_ == 0) {
 			N_ = N;
 			K_ = K;
-			System.out.println("GameManager::inilialize() N[" + N_ + "] K[" + K_ + "]");
+			System.out.format("GameManager::inilialize() N[%s] K[%s]\n", N_, K_);
 		}
 	}
 	
@@ -101,7 +119,7 @@ public class GameManager implements AcceptListenerI, ConnectionListenerI {
 	public boolean Handle(Connection connection, PlayerJoinMsg msg) {
 		if (msg.deserialize()) {
 			String host = msg.getHost();
-			PeerState peer = new PeerState(msg.getId(), host, msg.getListeningPort());
+			PlayerState peer = new PlayerState(msg.getId(), host, msg.getListeningPort());
 			Player player = new Player(connection, peer);
 			players_.put(connection, player);
 			player_list_.add(player);
@@ -121,5 +139,5 @@ public class GameManager implements AcceptListenerI, ConnectionListenerI {
 	
 	private RoleManager role_manager_;
 	private ArrayList<Player> player_list_;
-	private Hashtable<Connection, Player> players_;
+	private HashMap<Connection, Player> players_;
 }

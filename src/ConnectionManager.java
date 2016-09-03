@@ -43,9 +43,8 @@ public class ConnectionManager implements Runnable {
 			InetSocketAddress address = (InetSocketAddress) socket.getLocalAddress();
 			local_host_ = InetAddress.getLocalHost().getHostAddress();
 			listening_port_ = address.getPort();
-			System.out.println(
-					"ConnectionManager::initialize() local host " + local_host_ + " listening port " + listening_port_);
-			System.out.println("ConnectionManager::initialize() bind to " + socket.getLocalAddress());
+			System.out.format(
+					"ConnectionManager::initialize() local_host[%s] listening_port[%s]\n", local_host_, listening_port_);
 
 			socket.register(selector_, SelectionKey.OP_ACCEPT);
 			return true;
@@ -111,13 +110,13 @@ public class ConnectionManager implements Runnable {
 			synchronized (cmd_queue_) {
 				for (Cmd cmd : cmd_queue_) {
 					try {
-						System.out.println(
-								"ConnectionManager::run() connecting to " + cmd.host_ + ":" + cmd.listening_port_);
+						System.out.format("ConnectionManager::run() connecting to host[%s] port[%s]\n",
+								cmd.host_, cmd.listening_port_);
 						SocketChannel socket = SocketChannel
 								.open(new InetSocketAddress(cmd.host_, cmd.listening_port_));
 						socket.configureBlocking(false);
-						System.out.println("ConnectionManager::run() connected local " + socket.getLocalAddress()
-								+ " remote " + socket.getRemoteAddress());
+						System.out.format("ConnectionManager::run() connected local_address[%s] remote_address[%s]\n",
+								socket.getLocalAddress(), socket.getRemoteAddress());
 
 						SelectionKey conn_key = socket.register(selector_, SelectionKey.OP_READ);
 						Connection connection = new Connection(this, socket);
@@ -131,6 +130,11 @@ public class ConnectionManager implements Runnable {
 			}
 		}
 
+		try {
+			selector_.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 		System.out.println("ConnectionManager::run() stopped");
 	}
 
@@ -144,7 +148,7 @@ public class ConnectionManager implements Runnable {
 			ServerSocketChannel server_socket = (ServerSocketChannel) key.channel();
 			SocketChannel client_socket = server_socket.accept();
 			client_socket.configureBlocking(false);
-			System.out.println("ConnectionManager::accept() accepted " + client_socket.getRemoteAddress());
+			System.out.format("ConnectionManager::accept() accepted address[%s]\n", client_socket.getRemoteAddress());
 
 			Connection connection = new Connection(this, client_socket);
 			if (listener_.OnAccepted(connection)) {

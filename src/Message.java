@@ -33,7 +33,7 @@ public abstract class Message {
 }
 
 enum MsgType {
-	kInfo, kPlayerJoin, kGameState
+	kInfo, kPlayerJoin, kPlayersState
 }
 
 class MessageHelper {
@@ -126,6 +126,10 @@ class InfoMsg extends Message {
 		}
 	}
 	
+	public void clearPeers() {
+		peers_.clear();
+	}
+	
 	@Override
 	protected int serializeImpl() {
 		buffer_.putInt(N_);
@@ -212,15 +216,15 @@ class PlayerJoinMsg extends Message {
 	private int seq_num_;
 }
 
-class PeerState {
-	public PeerState() {
-		x = 0;
-		y = 0;
+class PlayerState {
+	public PlayerState() {
+		x = -1;
+		y = -1;
 		treasure = 0;
 		last_seq_num = 0;
 	}
 	
-	public PeerState(String id, String host, int listening_port) {
+	public PlayerState(String id, String host, int listening_port) {
 		this();
 		this.id = id;
 		this.host = host;
@@ -260,28 +264,38 @@ class PeerState {
 		}
 		return false;
 	}
+	
+	public String toString() {
+		return String.format("id[%s] host[%s] port[%s] x[%s] y[%s] treasure[%s] last_seq_num[%s]", id, host, port, x, y, 
+				treasure, last_seq_num);
+	}
 }
 
-class GameStateMsg extends Message {
-	public GameStateMsg(ByteBuffer buffer) {
-		super(MsgType.kGameState);
+class PlayersStateMsg extends Message {
+	public PlayersStateMsg(ByteBuffer buffer) {
+		super(MsgType.kPlayersState);
 		buffer_ = buffer;
-		peers_ = new ArrayList<PeerState>();
+		peers_ = new ArrayList<PlayerState>();
 	}
 	
-	public GameStateMsg() {
-		super(MsgType.kGameState);
+	public PlayersStateMsg() {
+		super(MsgType.kPlayersState);
+		peers_ = new ArrayList<PlayerState>();
 	}
 	
 	public ByteBuffer getBuffer() {
 		return buffer_;
 	}
 	
+	public void addPeer(PlayerState peer) {
+		peers_.add(peer);
+	}
+	
 	@Override
 	protected int serializeImpl() {		
 		buffer_.putInt(peers_.size());
 		int size = 1 * 4;
-		for (PeerState peer : peers_) {
+		for (PlayerState peer : peers_) {
 			size += peer.serialize(buffer_);
 		}
 		return size;
@@ -292,7 +306,7 @@ class GameStateMsg extends Message {
 		if (buffer_.remaining() < 4) return false;	
 		int peer_count = buffer_.getInt();
 		for (int i = 0; i < peer_count; ++i) {
-			PeerState peer = new PeerState();
+			PlayerState peer = new PlayerState();
 			if (peer.deserialize(buffer_)) {
 				peers_.add(peer);
 			}
@@ -300,5 +314,7 @@ class GameStateMsg extends Message {
 		return true;
 	}
 	
-	private ArrayList<PeerState> peers_;
+	private ArrayList<PlayerState> peers_;
 }
+
+

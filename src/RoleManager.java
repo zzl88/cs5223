@@ -1,11 +1,11 @@
 import java.nio.ByteBuffer;
-import java.util.Hashtable;
+import java.util.HashMap;
 
 public abstract class RoleManager {
 	public RoleManager(GameManager gm) {
 		gm_ = gm;
 		cur_seq_num_ = 0;
-		history_ = new Hashtable<Integer, Message>();
+		history_ = new HashMap<Integer, Message>();
 	}
 
 	public void promote(RoleManager rm) {
@@ -31,7 +31,7 @@ public abstract class RoleManager {
 		return cur_seq_num_;
 	}
 
-	public Hashtable<Integer, Message> getHistory() {
+	public HashMap<Integer, Message> getHistory() {
 		return history_;
 	}
 
@@ -48,7 +48,7 @@ public abstract class RoleManager {
 	protected InfoMsg info_;
 
 	protected int cur_seq_num_;
-	protected Hashtable<Integer, Message> history_;
+	protected HashMap<Integer, Message> history_;
 }
 
 class PrimaryManager extends RoleManager {
@@ -98,8 +98,8 @@ class PrimaryManager extends RoleManager {
 				Player player0 = gm_.getPlayer(secondary.host, secondary.port);
 				if (player0 != null) {
 					secondary_ = player0.getConnection();
-					System.out.println("PrimaryManager::OnDisconnected() nominate new secondary server host["
-							+ secondary.host + "] port[" + secondary.port + "]");
+					System.out.format("PrimaryManager::OnDisconnected() nominate new secondary server host[%s] port[%s]\n",
+							secondary.host, secondary.port);
 					secondary_.write(info_);
 				}
 			}
@@ -107,7 +107,7 @@ class PrimaryManager extends RoleManager {
 		
 		Player player = gm_.getPlayer(connection);
 		if (player != null) {
-			PeerState state = player.getState();
+			PlayerState state = player.getState();
 			info_.removePeer(state.host, state.port);
 			tracker_.write(info_);
 			if (secondary_ != null)
@@ -126,7 +126,7 @@ class PrimaryManager extends RoleManager {
 		case kPlayerJoin:
 			PlayerJoinMsg msg = new PlayerJoinMsg(buffer);
 			if (gm_.Handle(connection, msg)) {
-				PeerState state = gm_.getPlayer(connection).getState();
+				PlayerState state = gm_.getPlayer(connection).getState();
 				info_.addPeer(state.host, state.port);
 
 				if (info_.getPeers().size() >= 2) {
@@ -135,7 +135,7 @@ class PrimaryManager extends RoleManager {
 						secondary_ = connection;
 						System.out.println("PrimaryManager::OnMessage() secondary server joined");
 					} else {
-						System.out.println("PrimaryManager::OnMessage() player joined " + msg.getId());
+						System.out.format("PrimaryManager::OnMessage() player joined id[%s]\n", msg.getId());
 					}
 				} else {
 					System.out.println("PrimaryManager::OnMessage() ERR: wrong peer count");
@@ -145,7 +145,7 @@ class PrimaryManager extends RoleManager {
 					secondary_.write(info_);
 			}
 			break;
-		case kGameState:
+		case kPlayersState:
 			break;
 		}
 	}
@@ -208,7 +208,7 @@ class PlayerManager extends RoleManager {
 			info_ = new InfoMsg(buffer);
 			if (info_.deserialize()) {
 				for (TrackerPeerInfo peer : info_.getPeers()) {
-					System.out.println("PlayerManager::OnMessage() peer host " + peer.host + " port " + peer.port);
+					System.out.format("    peer host[%s] port[%s]\n", peer.host, peer.port);
 				}
 				int N = info_.getN();
 				int K = info_.getK();
@@ -217,7 +217,11 @@ class PlayerManager extends RoleManager {
 				if (info_.getPeers().isEmpty()) {
 					gm_.promotePrimary(this);
 				} else if (info_.getPeers().size() == 1) {
-					gm_.promoteSecondary(this);
+					if (gm_.getLocalHost().equals(info_.getPeers().get(0).host) && 
+							gm_.getListeningPort() == info_.getPeers().get(0).port)
+						gm_.promotePrimary(this);
+					else
+						gm_.promoteSecondary(this);
 				} else {
 					if (tracker_ != null) {
 						tracker_.close();
@@ -240,7 +244,7 @@ class PlayerManager extends RoleManager {
 			PlayerJoinMsg msg = new PlayerJoinMsg(buffer);
 			gm_.Handle(connection, msg);
 			break;
-		case kGameState:
+		case kPlayersState:
 			break;
 		}
 	}
@@ -300,9 +304,8 @@ class SecondaryManager extends PlayerManager {
 			PlayerJoinMsg msg = new PlayerJoinMsg(buffer);
 			gm_.Handle(connection, msg);
 			break;
-		case kGameState:
+		case kPlayersState:
 			break;
 		}
-
 	}
 }

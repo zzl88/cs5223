@@ -37,11 +37,11 @@ public class Connection {
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
-			manager_.close(this);
 			listener_.OnDisconnected(this);
+			close();
 		} else {
 			try {
-				System.out.println("Connection::read() read " + num + ", from " + socket_.getRemoteAddress());
+				System.out.format("Connection::read() size[%s] from[%s]\n", num, socket_.getRemoteAddress());
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
@@ -49,15 +49,14 @@ public class Connection {
 			read_buffer_.rewind();
 			while (read_buffer_.position() < num) {
 				int message_len = read_buffer_.getInt();
-				System.out.println("message len: " + message_len);
+				System.out.format("Connection::read() message_len[%s]\n", message_len);
 				if (message_len == 0 || message_len + read_buffer_.position() > num)
 					break;
 
 				byte[] buffer = new byte[message_len];
 				read_buffer_.get(buffer, 0, message_len);
 
-				System.out.println("Connection::read() message_len: " + message_len + " remaining: "
-						+ (num - read_buffer_.position()));
+				System.out.format("Connection::read() remaining[%s]\n", (num - read_buffer_.position()));
 				listener_.OnMessage(this, ByteBuffer.wrap(buffer));
 			}
 			if (read_buffer_.position() < num) {
@@ -70,17 +69,20 @@ public class Connection {
 				read_buffer_.rewind();
 			}
 			
-			System.out.println("Connection::read() buffer position " + read_buffer_.position());
+			System.out.format("Connection::read() buffer_position[%s]\n", read_buffer_.position());
 		}
 	}
 
 	public void write(Message msg) {
 		msg.serialize();
 		try {
-			System.out.println("Connection::write() size " + msg.getBuffer().remaining());
-			socket_.write(msg.getBuffer());
+			System.out.format("Connection::write() size[%s]\n", msg.getBuffer().remaining());
+			while (msg.getBuffer().hasRemaining()) {
+				socket_.write(msg.getBuffer());
+			}
 		} catch (IOException e) {
-			e.printStackTrace();
+			// e.printStackTrace();
+			System.out.println("Connection::write() failed");
 		}
 	}
 	
