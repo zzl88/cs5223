@@ -24,7 +24,14 @@ public class Player implements ConnectionListenerI {
 		case kPlayerJoin:
 			gm_.handle(this, new PlayerJoinMsg(buffer));
 			break;
-		case kPlayersState:
+		case kPlayerState:
+			gm_.handle(this, new PlayerState(buffer));
+			break;
+		case kMazeState:
+			gm_.handle(this, new MazeStateMsg(buffer));
+			break;
+		case kMove:
+			gm_.handle(this, new MoveMsg(buffer));
 			break;
 		default:
 			System.out.format("Player::onData() unhandled msg_type[%s]\n", msg_type);

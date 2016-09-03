@@ -68,7 +68,8 @@ public class Connection implements Runnable {
 	public void write(Message msg) {
 		msg.serialize();
 		try {
-			System.out.format("Connection::write() size[%s]\n", msg.getBuffer().remaining());
+			System.out.format("Connection::write() size[%s] remote[%s] %s\n", 
+					msg.getBuffer().remaining(), getRemoteAddress(), msg);
 			while (msg.getBuffer().hasRemaining()) {
 				socket_.write(msg.getBuffer());
 			}

@@ -49,7 +49,7 @@ public class TrackerImpl implements ServerSocketListenerI, ConnectionListenerI {
 				info_ = msg;
 				System.out.format("TrackerImpl::OnMessage() kInfo remote[%s]\n", connection.getRemoteAddress());
 				for (TrackerPeerInfo peer : info_.getPeers()) {
-					System.out.format("    peer host[%s] port[%s]\n", peer.host, peer.port);
+					System.out.format("    peer host[%s] port[%s]\n", peer.host, peer.listening_port);
 				}
 			}
 			break;

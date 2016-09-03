@@ -8,8 +8,6 @@ public class GameManager implements ServerSocketListenerI, ConnectionListenerI, 
 		tracker_host_ = tracker_host;
 		tracker_port_ = tracker_port;
 		player_id_ = player_id;
-		N_ = 0;
-		K_ = 0;
 		
 		server_ = new ListeningSocket(0, this);
 		
@@ -54,7 +52,9 @@ public class GameManager implements ServerSocketListenerI, ConnectionListenerI, 
 		System.out.println("GameManager::run() started");
 		Scanner sc = new Scanner(System.in);
 		while (sc.hasNext()) {
-			System.out.println(sc.nextLine());
+			synchronized (this) {
+				role_manager_.move(sc.nextLine().charAt(0));
+			}
 		}
 		sc.close();
 		System.out.println("GameManager::run() stopped");
@@ -99,18 +99,10 @@ public class GameManager implements ServerSocketListenerI, ConnectionListenerI, 
 		}
 	}
 	
-	public void inilialize(int N, int K) {
-		if (N_ == 0 && K_ == 0) {
-			N_ = N;
-			K_ = K;
-			System.out.format("GameManager::inilialize() N[%s] K[%s]\n", N_, K_);
-		}
-	}
-	
 	public Player getPlayer(String host, int listening_port) {
 		synchronized (this) {
 			for (Player player : player_list_) {
-				if (player.getState().host == host && player.getState().port == listening_port) {
+				if (player.getState().host == host && player.getState().listening_port == listening_port) {
 					return player;
 				}
 			}
@@ -142,7 +134,7 @@ public class GameManager implements ServerSocketListenerI, ConnectionListenerI, 
 		Player player = new Player(connection, this);
 		player.setState(new PlayerState());
 		player.getState().host = host;
-		player.getState().port = port;
+		player.getState().listening_port = port;
 		connection.set_listener(player);
 		int i;
 		for (i = 0; i < 5 && !connection.start(); ++i) {}
@@ -151,9 +143,17 @@ public class GameManager implements ServerSocketListenerI, ConnectionListenerI, 
 	}
 	
 	public void promotePrimary(PlayerManager pm) {
-		System.out.println("GameManager::promotePrimary() promote to Primary server");
+		System.out.println("GameManager::promotePrimary() promote to Primary server 1");
 		PrimaryManager new_rm = new PrimaryManager(this);
 		new_rm.promote(pm);
+		role_manager_ = new_rm;
+		server_.start();
+	}
+	
+	public void promotePrimary(SecondaryManager sm) {
+		System.out.println("GameManager::promotePrimary() promote to Primary sever 2");
+		PrimaryManager new_rm = new PrimaryManager(this);
+		new_rm.promote(sm);
 		role_manager_ = new_rm;
 		server_.start();
 	}
@@ -177,26 +177,43 @@ public class GameManager implements ServerSocketListenerI, ConnectionListenerI, 
 			}
 		}
 	}
-	public boolean handle(Player player, PlayerJoinMsg msg) {
+	public void handle(Player player, PlayerJoinMsg msg) {
 		synchronized (this) {
 			if (msg.deserialize()) {
 				PlayerState state = new PlayerState(msg.getId(), msg.getHost(), msg.getListeningPort());
 				player.setState(state);
 				role_manager_.onJoined(player);
-				return true;
 			} else {
 				player.getConnection().stop();
 				player_list_.remove(player);
-				return false;
 			}
+		}
+	}
+	
+	public void handle(Player player, PlayerState msg) {
+		synchronized (this) {
+			if (msg.deserialize()) {
+				role_manager_.handle(player, msg);
+			}
+		}
+	}
+	
+	public void handle(Player player, MazeStateMsg msg) {
+		synchronized (this) {
+			role_manager_.handle(msg);
+		}
+	}
+	
+	public void handle(Player player, MoveMsg msg) {
+		synchronized (this) {
+			if (msg.deserialize())
+				role_manager_.handle(player, msg);
 		}
 	}
 	
 	private String tracker_host_;
 	private int tracker_port_;
 	private String player_id_;
-	private int N_;
-	private int K_;
 	
 	private ListeningSocket server_;
 	private Connection tracker_;

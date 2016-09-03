@@ -3,7 +3,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 
 enum MsgType {
-	kInfo, kPlayerJoin, kPlayersState, kMazeState, kMove
+	kInfo, kPlayerJoin, kPlayerState, kMazeState, kMove
 }
 
 public abstract class Message {	
@@ -62,16 +62,16 @@ class MessageHelper {
 
 class TrackerPeerInfo {
 	public String host;
-	public int port;
+	public int listening_port;
 	
 	public void serialize(ByteBuffer buffer) {
 		MessageHelper.putString(buffer, host);
-		buffer.putInt(port);
+		buffer.putInt(listening_port);
 	}
 	
 	public void deserialize(ByteBuffer buffer) {
 		host = MessageHelper.getString(buffer);
-		port = buffer.getInt();
+		listening_port = buffer.getInt();
 	}
 }
 class InfoMsg extends Message {
@@ -102,22 +102,22 @@ class InfoMsg extends Message {
 	
 	public void addPeer(String host, int port) {
 		for (TrackerPeerInfo info : peers_) {
-			if (info.host.equals(host) && info.port == port) 
+			if (info.host.equals(host) && info.listening_port == port) 
 				return;
 		}
 		
-		System.out.println("TrackerPeerInfo::addPeer() host[" + host + "] port[" + port + "]"); 
+		System.out.println("TrackerPeerInfo::addPeer() host[" + host + "] listening_port[" + port + "]"); 
 		TrackerPeerInfo peer = new TrackerPeerInfo();
 		peer.host = host;
-		peer.port = port;
+		peer.listening_port = port;
 		peers_.add(peer);
 	}
 	
 	public void removePeer(String host, int port) {
 		for (TrackerPeerInfo info : peers_) {
-			if (info.host.equals(host) && info.port == port) {
+			if (info.host.equals(host) && info.listening_port == port) {
 				peers_.remove(info);
-				System.out.println("TrackerPeerInfo::removePeer() host[" + host + "] port[" + port + "]"); 
+				System.out.println("TrackerPeerInfo::removePeer() host[" + host + "] listening_port[" + port + "]"); 
 				return;
 			}
 		}
@@ -204,105 +204,75 @@ class PlayerJoinMsg extends Message {
 	private int seq_num_;
 }
 
-class PlayerState {
+class PlayerState extends Message {
 	public PlayerState() {
+		super(MsgType.kPlayerState);
 		x = -1;
 		y = -1;
 		treasure = 0;
 		last_seq_num = 0;
 	}
 	
+	public PlayerState(ByteBuffer buffer) {
+		this();
+		buffer_ = buffer;
+	}
+	
 	public PlayerState(String id, String host, int listening_port) {
 		this();
 		this.id = id;
 		this.host = host;
-		this.port = listening_port;
+		this.listening_port = listening_port;
 	}
 	
 	public String id;
 	public String host;
-	public int port;
+	public int listening_port;
 	public int x;
 	public int y;
 	public int treasure;
 	public int last_seq_num;
 	
-	public void serialize(ByteBuffer buffer) {
-		MessageHelper.putString(buffer, id);
-		MessageHelper.putString(buffer, host);
-		buffer.putInt(x);
-		buffer.putInt(y);
-		buffer.putInt(treasure);
-		buffer.putInt(last_seq_num);
+	@Override
+	public void serializeImpl() {
+		MessageHelper.putString(buffer_, id);
+		MessageHelper.putString(buffer_, host);
+		buffer_.putInt(listening_port);
+		buffer_.putInt(x);
+		buffer_.putInt(y);
+		buffer_.putInt(treasure);
+		buffer_.putInt(last_seq_num);
 	}
 	
-	public void deserialize(ByteBuffer buffer) {
-		id = MessageHelper.getString(buffer);
-		host = MessageHelper.getString(buffer);
-		x = buffer.getInt();
-		y = buffer.getInt();
-		treasure = buffer.getInt();
-		last_seq_num = buffer.getInt();
+	@Override
+	public void deserializeImpl() {
+		id = MessageHelper.getString(buffer_);
+		host = MessageHelper.getString(buffer_);
+		listening_port = buffer_.getInt();
+		x = buffer_.getInt();
+		y = buffer_.getInt();
+		treasure = buffer_.getInt();
+		last_seq_num = buffer_.getInt();
 	}
 	
 	public String toString() {
-		return String.format("id[%s] host[%s] port[%s] x[%s] y[%s] treasure[%s] last_seq_num[%s]", id, host, port, x, y, 
-				treasure, last_seq_num);
+		return String.format("id[%s] host[%s] listening_port[%s] x[%s] y[%s] treasure[%s] last_seq_num[%s]", id, host,
+				listening_port, x, y, treasure, last_seq_num);
 	}
-}
-
-class PlayersStateMsg extends Message {
-	public PlayersStateMsg(ByteBuffer buffer) {
-		super(MsgType.kPlayersState);
-		buffer_ = buffer;
-		peers_ = new ArrayList<PlayerState>();
-	}
-	
-	public PlayersStateMsg() {
-		super(MsgType.kPlayersState);
-		peers_ = new ArrayList<PlayerState>();
-	}
-	
-	public ByteBuffer getBuffer() {
-		return buffer_;
-	}
-	
-	public void addPeer(PlayerState peer) {
-		peers_.add(peer);
-	}
-	
-	@Override
-	protected void serializeImpl() {		
-		buffer_.putInt(peers_.size());
-		for (PlayerState peer : peers_) {
-			peer.serialize(buffer_);
-		}
-	}
-
-	@Override
-	protected void deserializeImpl() {
-		int peer_count = buffer_.getInt();
-		for (int i = 0; i < peer_count; ++i) {
-			PlayerState peer = new PlayerState();
-			peer.deserialize(buffer_);
-			peers_.add(peer);
-		}
-	}
-	
-	private ArrayList<PlayerState> peers_;
 }
 
 class MazeStateMsg extends Message {
-	public MazeStateMsg(ByteBuffer buffer, Playground playground) {
+	public MazeStateMsg(ByteBuffer buffer) {
 		super(MsgType.kMazeState);
 		buffer_ = buffer;
-		playground_ = playground;
 	}
 	
 	public MazeStateMsg(Playground playground) {
 		super(MsgType.kMazeState);
 		playground_ = playground;
 	}
+	
+	public void setPlayground(Playground playground) { playground_ = playground; }
 	
 	@Override
 	protected void serializeImpl() {
