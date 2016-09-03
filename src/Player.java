@@ -1,3 +1,4 @@
+import java.util.concurrent.BlockingQueue;
 
 public class Player implements Runnable {
 	public Player(Connection connection, PlayerState state) {
@@ -27,13 +28,23 @@ public class Player implements Runnable {
 	public void run() {
 		// TODO Auto-generated method stub
 		System.out.println("Player::run() started");
-		
+		while (running_) {
+			try {
+				MoveMsg msg = msg_queue_.take();
+				if (msg.deserialize()) {
+					System.out.format("    id[%s] move[%s]", state_.id, msg.getDirection());
+				}
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		}
 		System.out.println("Player::run() stopped");
 	}
 	
 	private Connection connection_;
 	private PlayerState state_;
 	private volatile boolean running_;
+	private BlockingQueue<MoveMsg> msg_queue_;
 	
 	private Thread thread_;
 }

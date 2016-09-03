@@ -1,3 +1,4 @@
+import java.nio.ByteBuffer;
 
 class Node {
 	public Node(int x0, int y0) {
@@ -20,7 +21,7 @@ public class Playground {
 		yard_ = new Node[N][N];
 		for (int i = 0; i < N; ++i) {
 			for (int j = 0; j < N; ++j) {
-				yard_[j][i] = new Node(j, i);
+				yard_[i][j] = new Node(i, j);
 			}
 		}
 		
@@ -107,11 +108,35 @@ public class Playground {
 		return true;
 	}
 
+	public void serialize(ByteBuffer buffer) {
+		for (int i = 0; i < N_; ++i) {
+			for (int j = 0; j < N_; ++j) {
+				buffer.putInt(yard_[i][j].treasure);
+			}
+		}
+	}
+	
+	public void deserialize(ByteBuffer buffer) {
+		for (int i = 0; i < N_; ++i) {
+			for (int j = 0; j < N_; ++j) {
+				yard_[i][j].treasure = buffer.getInt();
+			}
+		}
+	}
+	
 	private void enter(Player player, Node node) {
 		player.getState().x = node.x;
 		player.getState().y = node.y;
 		player.getState().treasure += node.treasure;
 		
+		for (int i = 0; i < node.treasure;) {
+			int j = (int)(Math.random() * N_ * N_);
+			Node node0 = yard_[j/N_][j%N_];
+			if (node0.player == null && node0.x != node.x && node0.y != node.y) {
+				++node0.treasure;
+				++i;
+			}
+		}
 		node.player = player;
 		node.treasure = 0;
 	}

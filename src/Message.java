@@ -2,6 +2,10 @@ import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 
+enum MsgType {
+	kInfo, kPlayerJoin, kPlayersState, kMazeState, kMove
+}
+
 public abstract class Message {	
 	public Message(MsgType type) {
 		type_ = type;
@@ -15,25 +19,26 @@ public abstract class Message {
 		buffer_ = ByteBuffer.allocate(1024 * 1024);
 		buffer_.putInt(0);  // len
 		buffer_.putInt(type_.ordinal());
-		int size = 4;
-		size += serializeImpl();
-		buffer_.putInt(0, size);
+		serializeImpl();
+		buffer_.putInt(0, buffer_.position());
 		buffer_.flip();
 	}
 	
 	public boolean deserialize() {
-		return deserializeImpl();
+		try {
+			deserializeImpl();
+			return true;
+		} catch (BufferUnderflowException ex) {
+			ex.printStackTrace();
+			return false;
+		}
 	}
 	
-	protected abstract int serializeImpl();
-	protected abstract boolean deserializeImpl();
+	protected abstract void serializeImpl();
+	protected abstract void deserializeImpl();
 	
 	protected MsgType type_;
 	protected ByteBuffer buffer_;
-}
-
-enum MsgType {
-	kInfo, kPlayerJoin, kPlayersState
 }
 
 class MessageHelper {
@@ -59,22 +64,14 @@ class TrackerPeerInfo {
 	public String host;
 	public int port;
 	
-	public int serialize(ByteBuffer buffer) {
-		int size = MessageHelper.putString(buffer, host);
+	public void serialize(ByteBuffer buffer) {
+		MessageHelper.putString(buffer, host);
 		buffer.putInt(port);
-		size += 4;
-		return size;
 	}
 	
-	public boolean deserialize(ByteBuffer buffer) {
-		try {
-			host = MessageHelper.getString(buffer);
-			port = buffer.getInt();
-			return true;
-		} catch (BufferUnderflowException ex) {
-			ex.printStackTrace();
-		}
-		return false;
+	public void deserialize(ByteBuffer buffer) {
+		host = MessageHelper.getString(buffer);
+		port = buffer.getInt();
 	}
 }
 class InfoMsg extends Message {
@@ -131,32 +128,27 @@ class InfoMsg extends Message {
 	}
 	
 	@Override
-	protected int serializeImpl() {
+	protected void serializeImpl() {
 		buffer_.putInt(N_);
 		buffer_.putInt(K_);
 		
 		buffer_.putInt(peers_.size());
-		int size = 3 * 4;
 		for (TrackerPeerInfo peer : peers_) {
-			size += peer.serialize(buffer_);
+			peer.serialize(buffer_);
 		}
-		return size;
 	}
 
 	@Override
-	protected boolean deserializeImpl() {
-		if (buffer_.remaining() < 12) return false;
+	protected void deserializeImpl() {
 		N_ = buffer_.getInt();
 		K_ = buffer_.getInt();
 		
 		int peer_count = buffer_.getInt();
 		for (int i = 0; i < peer_count; ++i) {
 			TrackerPeerInfo peer = new TrackerPeerInfo();
-			if (peer.deserialize(buffer_)) {
-				peers_.add(peer);
-			}
+			peer.deserialize(buffer_);
+			peers_.add(peer);
 		}
-		return true;
 	}
 	
 	private int N_;
@@ -191,23 +183,19 @@ class PlayerJoinMsg extends Message {
 	public int getSeqNum() { return seq_num_; }
 
 	@Override
-	protected int serializeImpl() {
-		int size = MessageHelper.putString(buffer_, id_);
-		size += MessageHelper.putString(buffer_, host_);
+	protected void serializeImpl() {
+		MessageHelper.putString(buffer_, id_);
+		MessageHelper.putString(buffer_, host_);
 		buffer_.putInt(listening_port_);
 		buffer_.putInt(seq_num_);
-		size += 2 * 4;
-		return size;
 	}
 
 	@Override
-	protected boolean deserializeImpl() {
-		if (buffer_.remaining() < 4) return false;
+	protected void deserializeImpl() {
 		id_ = MessageHelper.getString(buffer_);
 		host_ = MessageHelper.getString(buffer_);
 		listening_port_ = buffer_.getInt();
 		seq_num_ = buffer_.getInt();
-		return true;
 	}
 	
 	private String id_;
@@ -239,30 +227,22 @@ class PlayerState {
 	public int treasure;
 	public int last_seq_num;
 	
-	public int serialize(ByteBuffer buffer) {
-		int size = MessageHelper.putString(buffer, id);
-		size += MessageHelper.putString(buffer, host);
+	public void serialize(ByteBuffer buffer) {
+		MessageHelper.putString(buffer, id);
+		MessageHelper.putString(buffer, host);
 		buffer.putInt(x);
 		buffer.putInt(y);
 		buffer.putInt(treasure);
 		buffer.putInt(last_seq_num);
-		size += 4 * 4;
-		return size;
 	}
 	
-	public boolean deserialize(ByteBuffer buffer) {
-		try {
-			id = MessageHelper.getString(buffer);
-			host = MessageHelper.getString(buffer);
-			x = buffer.getInt();
-			y = buffer.getInt();
-			treasure = buffer.getInt();
-			last_seq_num = buffer.getInt();
-			return true;
-		} catch (BufferUnderflowException ex) {
-			ex.printStackTrace();
-		}
-		return false;
+	public void deserialize(ByteBuffer buffer) {
+		id = MessageHelper.getString(buffer);
+		host = MessageHelper.getString(buffer);
+		x = buffer.getInt();
+		y = buffer.getInt();
+		treasure = buffer.getInt();
+		last_seq_num = buffer.getInt();
 	}
 	
 	public String toString() {
@@ -292,29 +272,72 @@ class PlayersStateMsg extends Message {
 	}
 	
 	@Override
-	protected int serializeImpl() {		
+	protected void serializeImpl() {		
 		buffer_.putInt(peers_.size());
-		int size = 1 * 4;
 		for (PlayerState peer : peers_) {
-			size += peer.serialize(buffer_);
+			peer.serialize(buffer_);
 		}
-		return size;
 	}
 
 	@Override
-	protected boolean deserializeImpl() {
-		if (buffer_.remaining() < 4) return false;	
+	protected void deserializeImpl() {
 		int peer_count = buffer_.getInt();
 		for (int i = 0; i < peer_count; ++i) {
 			PlayerState peer = new PlayerState();
-			if (peer.deserialize(buffer_)) {
-				peers_.add(peer);
-			}
+			peer.deserialize(buffer_);
+			peers_.add(peer);
 		}
-		return true;
 	}
 	
 	private ArrayList<PlayerState> peers_;
 }
 
+class MazeStateMsg extends Message {
+	public MazeStateMsg(ByteBuffer buffer, Playground playground) {
+		super(MsgType.kMazeState);
+		buffer_ = buffer;
+		playground_ = playground;
+	}
+	
+	public MazeStateMsg(Playground playground) {
+		super(MsgType.kMazeState);
+		playground_ = playground;
+	}
+	
+	@Override
+	protected void serializeImpl() {
+		playground_.serialize(buffer_);
+	}
+	@Override
+	protected void deserializeImpl() {
+		playground_.deserialize(buffer_);
+	}
+	
+	private Playground playground_;
+}
 
+class MoveMsg extends Message {
+	public MoveMsg(ByteBuffer buffer) {
+		super(MsgType.kMove);
+		buffer_ = buffer;
+	}
+	
+	public MoveMsg(char direction) {
+		super(MsgType.kMove);
+		direction_ = direction;
+	}
+	
+	char getDirection() { return direction_; }
+
+	@Override
+	protected void serializeImpl() {
+		buffer_.putChar(direction_);
+	}
+
+	@Override
+	protected void deserializeImpl() {
+		direction_ = buffer_.getChar();
+	}
+	
+	private char direction_;
+}
