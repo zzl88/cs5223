@@ -5,7 +5,7 @@ public abstract class RoleManager {
 	public RoleManager(GameManager gm) {
 		gm_ = gm;
 		cur_seq_num_ = 0;
-		player_states_ = new ArrayList<PlayerState>();
+		player_states_ = new PlayersStateMsg();
 		history_ = new HashMap<Integer, Message>();
 	}
 
@@ -21,11 +21,11 @@ public abstract class RoleManager {
 
 	public int getCurSeqNum() { return cur_seq_num_; }
 	public Playground getPlayground() { return playground_; }
-	public ArrayList<PlayerState> getPlayerStates() { return player_states_; }
+	public PlayersStateMsg getPlayerStates() { return player_states_; }
 	public HashMap<Integer, Message> getHistory() { return history_; }
 
 	public abstract void handle(InfoMsg info);
-	public abstract void handle(Player player, PlayerState state);
+	public abstract void handle(Player player, PlayersStateMsg state);
 	public abstract void handle(MazeStateMsg msg);
 	public abstract void handle(Player player, MoveMsg msg);
 	
@@ -40,7 +40,7 @@ public abstract class RoleManager {
 	protected InfoMsg info_;
 	
 	protected Playground playground_;
-	protected ArrayList<PlayerState> player_states_;
+	protected PlayersStateMsg player_states_;
 	
 	protected int cur_seq_num_;
 	protected HashMap<Integer, Message> history_;
@@ -60,6 +60,7 @@ class PrimaryManager extends RoleManager {
 		
 		playground_.initPlayer(self_);
 		
+		player_states_.addPlayer(self_);
 		info_.addPeer(gm_.getLocalHost(), gm_.getListeningPort());
 		gm_.connectTracker();
 		gm_.getTracker().write(info_);
@@ -68,7 +69,7 @@ class PrimaryManager extends RoleManager {
 	public void promote(SecondaryManager sm) {
 		super.promote(sm);
 		
-		for (PlayerState state : player_states_) {
+		for (PlayerState state : player_states_.getPlayersState()) {
 			playground_.setPlayer(state.x, state.y, state);
 			if (state.host.equals(gm_.getLocalHost()) && state.listening_port == gm_.getListeningPort())
 				self_ = state;
@@ -89,8 +90,8 @@ class PrimaryManager extends RoleManager {
 	}
 	
 	@Override
-	public void handle(Player player, PlayerState state) {
-		System.out.println("PrimaryManager::handle() unexpected PlayerState");
+	public void handle(Player player, PlayersStateMsg state) {
+		System.out.println("PrimaryManager::handle() unexpected PlayersState");
 	}
 	
 	@Override
@@ -123,10 +124,10 @@ class PrimaryManager extends RoleManager {
 				break;
 			}
 			if (secondary_ != null) {
-				secondary_.getConnection().write(player.getState());
+				secondary_.getConnection().write(player_states_);
 				secondary_.getConnection().write(new MazeStateMsg(playground_));
 			}
-			player.getConnection().write(player.getState());
+			player.getConnection().write(player_states_);
 			player.getConnection().write(new MazeStateMsg(playground_));
 		}
 	}
@@ -137,7 +138,8 @@ class PrimaryManager extends RoleManager {
 
 	@Override
 	public void onDisconnected(Player player) {
-		player_states_.remove(player.getState());
+		player.stop();
+		player_states_.removePlayer(player.getState());
 		
 		if (player == secondary_) {
 			secondary_ = null;
@@ -149,9 +151,6 @@ class PrimaryManager extends RoleManager {
 					secondary_ = player0;
 					System.out.format("PrimaryManager::onDisconnected() nominate new secondary server host[%s] port[%s]\n",
 							secondary.host, secondary.listening_port);
-					for (PlayerState p : player_states_) {
-						secondary_.getConnection().write(p);
-					}
 				}
 			}
 		}
@@ -162,10 +161,11 @@ class PrimaryManager extends RoleManager {
 		if (state != null) {
 			info_.removePeer(state.host, state.listening_port);
 			gm_.getTracker().write(info_);
-			if (secondary_ != null) {
-				secondary_.getConnection().write(info_);
-				secondary_.getConnection().write(new MazeStateMsg(playground_));
-			}
+		}
+		if (secondary_ != null) {
+			secondary_.getConnection().write(info_);
+			secondary_.getConnection().write(player_states_);
+			secondary_.getConnection().write(new MazeStateMsg(playground_));
 		}
 	}
 	
@@ -173,7 +173,7 @@ class PrimaryManager extends RoleManager {
 	public void onJoined(Player player) {
 		PlayerState state = player.getState();
 		synchronized (playground_) {
-			for (PlayerState p : player_states_) {
+			for (PlayerState p : player_states_.getPlayersState()) {
 				if (p.host.equals(state.host) && p.listening_port == state.listening_port) {
 					player.setState(p);
 					System.out.format("PrimaryManager::onJoined() update %s", p);
@@ -184,7 +184,7 @@ class PrimaryManager extends RoleManager {
 			state = player.getState();
 			if (state.x == -1) {
 				playground_.initPlayer(state);
-				player_states_.add(state);
+				player_states_.addPlayer(state);
 			}
 			
 			info_.addPeer(state.host, state.listening_port);
@@ -203,12 +203,12 @@ class PrimaryManager extends RoleManager {
 			gm_.getTracker().write(info_);
 			if (secondary_ != null) {
 				secondary_.getConnection().write(info_);
-				secondary_.getConnection().write(state);
+				secondary_.getConnection().write(player_states_);
+				secondary_.getConnection().write(new MazeStateMsg(playground_));
 			}
 			
-			for (PlayerState p : player_states_) {
-				player.getConnection().write(p);
-			}
+			player.getConnection().write(info_);
+			player.getConnection().write(player_states_);
 			player.getConnection().write(new MazeStateMsg(playground_));
 		}
 	}
@@ -235,7 +235,7 @@ class PrimaryManager extends RoleManager {
 				break;
 			}
 			if (secondary_ != null) {
-				secondary_.getConnection().write(self_);
+				secondary_.getConnection().write(player_states_);
 				secondary_.getConnection().write(new MazeStateMsg(playground_));
 			}
 		}
@@ -290,20 +290,9 @@ class PlayerManager extends RoleManager {
 	}
 	
 	@Override
-	public void handle(Player player, PlayerState state) {
+	public void handle(Player player, PlayersStateMsg msg) {
 		System.out.println("PlayerManager::handle() kPlayerState");
-		for (PlayerState p : player_states_) {
-			if (p.host.equals(state.host) && p.listening_port == state.listening_port) {
-				p.last_seq_num = state.last_seq_num;
-				p.treasure = state.treasure;
-				p.x = state.x;
-				p.y = state.y;
-				System.out.format(" -> %s\n", p);
-				return;
-			}
-		}
-		System.out.format("  => %s\n", state);
-		player_states_.add(state);
+		player_states_ = msg;
 	}
 	
 	@Override
@@ -326,6 +315,7 @@ class PlayerManager extends RoleManager {
 
 	@Override
 	public void onDisconnected(Player player) {
+		player.stop();
 		if (player == primary_) {
 			primary_ = null;
 			
@@ -389,10 +379,11 @@ class SecondaryManager extends PlayerManager {
 	}
 	
 	public void onDisconnected(Player player) {
+		player.stop();
 		if (player == primary_) {
 			TrackerPeerInfo primary = info_.getPeers().get(0);
 			info_.removePeer(primary.host, primary.listening_port);
-			player_states_.remove(player.getState());
+			player_states_.removePlayer(player.getState());
 			gm_.promotePrimary(this);
 			primary_ = null;
 		}

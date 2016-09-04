@@ -4,7 +4,7 @@ import java.util.ArrayList;
 public class TrackerImpl implements ServerSocketListenerI, ConnectionListenerI {
 	public TrackerImpl(int listening_port, int N, int K) {
 		info_ = new InfoMsg(N, K);
-		server_ = new ListeningSocket(listening_port, this);
+		server_ = new ConnectionManager(listening_port, this);
 		connections_ = new ArrayList<Connection>();
 	}
 	
@@ -14,14 +14,10 @@ public class TrackerImpl implements ServerSocketListenerI, ConnectionListenerI {
 	
 	public void stop() {
 		server_.stop();
-		for (Connection conn : connections_) {
-			conn.stop();
-		}
 	}
 
 	@Override
 	public void onAccepted(Connection connection) {
-		connection.start();
 		connections_.add(connection);
 		connection.set_listener(this);
 		System.out.format("TrackerImpl::onAccepted() Client accepted count[%s]\n", connections_.size());
@@ -30,7 +26,7 @@ public class TrackerImpl implements ServerSocketListenerI, ConnectionListenerI {
 
 	@Override
 	public void onDisconnected(Connection connection) {
-		connection.stop();
+		server_.close(connection);
 		connections_.remove(connection);
 		System.out.format("TrackerImpl::OnDisconnected() Client disconnected count[%s]\n", connections_.size());
 		if (connections_.isEmpty()) {
@@ -59,6 +55,6 @@ public class TrackerImpl implements ServerSocketListenerI, ConnectionListenerI {
 	}
 
 	InfoMsg info_;
-	ListeningSocket server_;
+	ConnectionManager server_;
 	ArrayList<Connection> connections_;
 }
