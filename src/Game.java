@@ -10,7 +10,7 @@ public class Game {
 		int port = Integer.parseInt(args[1]);
 		String id = args[2];
 		
-		GameManager manager = new GameManager(ip, port, id);
+		final GameManager manager = new GameManager(ip, port, id);
 		manager.start();
 		
 		Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {

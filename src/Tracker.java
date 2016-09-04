@@ -10,7 +10,7 @@ public class Tracker {
 		int N = Integer.parseInt(args[1]);
 		int K = Integer.parseInt(args[2]);
 		
-		TrackerImpl tracker = new TrackerImpl(port, N, K);
+		final TrackerImpl tracker = new TrackerImpl(port, N, K);
 		tracker.start();
 		
 		Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
