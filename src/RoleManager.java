@@ -1,4 +1,3 @@
-import java.util.ArrayList;
 import java.util.HashMap;
 
 public abstract class RoleManager {
@@ -62,8 +61,8 @@ class PrimaryManager extends RoleManager {
 		
 		player_states_.addPlayer(self_);
 		info_.addPeer(gm_.getLocalHost(), gm_.getListeningPort());
-		gm_.connectTracker();
-		gm_.getTracker().write(info_);
+		if (gm_.connectTracker())
+			gm_.getTracker().write(info_);
 	}
 	
 	public void promote(SecondaryManager sm) {
@@ -75,8 +74,8 @@ class PrimaryManager extends RoleManager {
 				self_ = state;
 		}
 		
-		gm_.connectTracker();
-		gm_.getTracker().write(info_);
+		if (gm_.connectTracker())
+			gm_.getTracker().write(info_);
 	}
 
 	@Override
@@ -138,7 +137,6 @@ class PrimaryManager extends RoleManager {
 
 	@Override
 	public void onDisconnected(Player player) {
-		player.stop();
 		player_states_.removePlayer(player.getState());
 		
 		if (player == secondary_) {
@@ -162,8 +160,9 @@ class PrimaryManager extends RoleManager {
 			info_.removePeer(state.host, state.listening_port);
 			gm_.getTracker().write(info_);
 		}
+		gm_.broadcast(info_);
+		
 		if (secondary_ != null) {
-			secondary_.getConnection().write(info_);
 			secondary_.getConnection().write(player_states_);
 			secondary_.getConnection().write(new MazeStateMsg(playground_));
 		}
@@ -201,13 +200,13 @@ class PrimaryManager extends RoleManager {
 				System.out.println("PrimaryManager::onJoined() ERR: wrong peer count");
 			}
 			gm_.getTracker().write(info_);
+			gm_.broadcast(info_);
+			
 			if (secondary_ != null) {
-				secondary_.getConnection().write(info_);
 				secondary_.getConnection().write(player_states_);
 				secondary_.getConnection().write(new MazeStateMsg(playground_));
 			}
 			
-			player.getConnection().write(info_);
 			player.getConnection().write(player_states_);
 			player.getConnection().write(new MazeStateMsg(playground_));
 		}
@@ -234,6 +233,8 @@ class PrimaryManager extends RoleManager {
 			default:
 				break;
 			}
+			++self_.last_seq_num;
+			++cur_seq_num_;
 			if (secondary_ != null) {
 				secondary_.getConnection().write(player_states_);
 				secondary_.getConnection().write(new MazeStateMsg(playground_));
@@ -332,7 +333,9 @@ class PlayerManager extends RoleManager {
 	@Override
 	public void move(char direction) {
 		if (primary_ != null) {
-			primary_.getConnection().write(new MoveMsg(direction));
+			MoveMsg msg = new MoveMsg(direction, ++cur_seq_num_);
+			primary_.getConnection().write(msg);
+			history_.put(cur_seq_num_, msg);
 		}
 	}
 	
@@ -343,9 +346,9 @@ class PlayerManager extends RoleManager {
 			if (primary_ == null) {
 				gm_.stop();
 			} else {
-				PlayerJoinMsg msg = new PlayerJoinMsg(gm_.getPlayerId(), gm_.getLocalHost(), gm_.getListeningPort(),
+				JoinMsg msg = new JoinMsg(gm_.getPlayerId(), gm_.getLocalHost(), gm_.getListeningPort(),
 						cur_seq_num_);
-				history_.put(cur_seq_num_, new PlayerJoinMsg(msg));
+				history_.put(cur_seq_num_, new JoinMsg(msg));
 				primary_.getConnection().write(msg);
 			}
 		}

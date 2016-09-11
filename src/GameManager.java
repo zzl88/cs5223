@@ -23,12 +23,13 @@ public class GameManager implements ServerSocketListenerI, ConnectionListenerI, 
 		if (!server_.start()) 
 			return false;
 
-		connectTracker();
-		
-		System.out.println("GameManager::start() connected tracker");
-		thread_ = new Thread(this);
-		thread_.start();
-		return true;
+		if (connectTracker()) {
+			System.out.println("GameManager::start() connected tracker");
+			thread_ = new Thread(this);
+			thread_.start();
+			return true;
+		}
+		return false;
 	}
 	
 	public void stop() {
@@ -113,14 +114,17 @@ public class GameManager implements ServerSocketListenerI, ConnectionListenerI, 
 	
 	public Connection getTracker() { return tracker_; }
 	
-	public void connectTracker() {
+	public boolean connectTracker() {
 		if (tracker_ == null) {
 			tracker_ = server_.connect(tracker_host_, tracker_port_);
-			if (tracker_ == null)
+			if (tracker_ == null) {
 				stop();
-			else
+				return false;
+			} else {
 				tracker_.set_listener(this);
+			}
 		}
+		return true;
 	}
 	
 	public void disconnectTracker() {
@@ -169,8 +173,7 @@ public class GameManager implements ServerSocketListenerI, ConnectionListenerI, 
 	
 	public void onDisconnected(Player player) {
 		synchronized (this) {
-			server_.close(player.getConnection());
-			role_manager_.onDisconnected(player);
+			kickPlayer(player);
 		}
 	}
 	public void handle(Player player, InfoMsg info) {
@@ -180,15 +183,14 @@ public class GameManager implements ServerSocketListenerI, ConnectionListenerI, 
 			}
 		}
 	}
-	public void handle(Player player, PlayerJoinMsg msg) {
+	public void handle(Player player, JoinMsg msg) {
 		synchronized (this) {
 			if (msg.deserialize()) {
 				PlayerState state = new PlayerState(msg.getId(), msg.getHost(), msg.getListeningPort());
 				player.setState(state);
 				role_manager_.onJoined(player);
 			} else {
-				server_.close(player.getConnection());
-				player_list_.remove(player);
+				kickPlayer(player);
 			}
 		}
 	}
@@ -197,6 +199,8 @@ public class GameManager implements ServerSocketListenerI, ConnectionListenerI, 
 		synchronized (this) {
 			if (msg.deserialize()) {
 				role_manager_.handle(player, msg);
+			} else {
+				kickPlayer(player);
 			}
 		}
 	}
@@ -209,9 +213,25 @@ public class GameManager implements ServerSocketListenerI, ConnectionListenerI, 
 	
 	public void handle(Player player, MoveMsg msg) {
 		synchronized (this) {
-			if (msg.deserialize())
+			if (msg.deserialize()) {
 				role_manager_.handle(player, msg);
+			} else {
+				kickPlayer(player);
+			}
 		}
+	}
+	
+	public void broadcast(InfoMsg info) {
+		for (Player player : player_list_) {
+			player.getConnection().write(info);
+		}
+	}
+	
+	private void kickPlayer(Player player) {
+		player.stop();
+		server_.close(player.getConnection());
+		player_list_.remove(player);
+		role_manager_.onDisconnected(player);
 	}
 	
 	private String tracker_host_;

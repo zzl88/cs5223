@@ -75,7 +75,6 @@ public class Connection {
 				byte[] buffer = new byte[message_len - 4];
 				read_buffer_.get(buffer, 0, message_len - 4);
 
-				System.out.format("Connection::read() remaining[%s]\n", (num - read_buffer_.position()));
 				if (listener_ != null) listener_.onData(this, ByteBuffer.wrap(buffer));
 			}
 			if (read_buffer_.position() < num) {

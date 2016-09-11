@@ -123,9 +123,9 @@ public class Playground {
 		for (int i = 0; i < N_; ++i) {
 			for (int j = 0; j < N_; ++j) {
 				yard_[i][j].treasure = buffer.getInt();
-				System.out.print(yard_[i][j].treasure + " ");
+				// System.out.print(yard_[i][j].treasure + " ");
 			}
-			System.out.println();
+			// System.out.println();
 		}
 	}
 	
@@ -148,13 +148,14 @@ public class Playground {
 		node.player = player;
 		node.treasure = 0;
 		
-		///
+		/*
 		for (int i = 0; i < N_; ++i) {
 			for (int j = 0; j < N_; ++j) {
 				System.out.print(yard_[i][j].treasure + " ");
 			}
 			System.out.println();
 		}
+		*/
 	}
 	
 	private int N_;

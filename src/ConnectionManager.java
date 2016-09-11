@@ -9,6 +9,11 @@ import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
 
+
+interface ServerSocketListenerI {
+	public abstract void onAccepted(Connection connection);
+}
+
 class SelectorCmd {
 	enum Type {
 		kAdd, kRemove

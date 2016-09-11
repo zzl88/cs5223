@@ -54,8 +54,8 @@ public class Player implements ConnectionListenerI, Runnable {
 					case kInfo:
 						gm_.handle(this, new InfoMsg(buffer));
 						break;
-					case kPlayerJoin:
-						gm_.handle(this, new PlayerJoinMsg(buffer));
+					case kJoin:
+						gm_.handle(this, new JoinMsg(buffer));
 						break;
 					case kPlayerState:
 						gm_.handle(this, new PlayersStateMsg(buffer));

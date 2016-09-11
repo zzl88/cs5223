@@ -3,7 +3,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 
 enum MsgType {
-	kInfo, kPlayerJoin, kPlayerState, kMazeState, kMove
+	kInfo, kJoin, kPlayerState, kMazeState, kMove
 }
 
 public abstract class Message {	
@@ -156,22 +156,22 @@ class InfoMsg extends Message {
 	private ArrayList<TrackerPeerInfo> peers_;
 }
 
-class PlayerJoinMsg extends Message {
-	public PlayerJoinMsg(String id, String host, int port, int seq_num) {
-		super(MsgType.kPlayerJoin);
+class JoinMsg extends Message {
+	public JoinMsg(String id, String host, int port, int seq_num) {
+		super(MsgType.kJoin);
 		id_ = id;
 		host_ = host;
 		listening_port_ = port;
 		seq_num_ = seq_num;
 	}
 	
-	public PlayerJoinMsg(ByteBuffer buffer) {
-		super(MsgType.kPlayerJoin);
+	public JoinMsg(ByteBuffer buffer) {
+		super(MsgType.kJoin);
 		buffer_ = buffer;
 	}
 	
-	public PlayerJoinMsg(PlayerJoinMsg msg) {
-		super(MsgType.kPlayerJoin);
+	public JoinMsg(JoinMsg msg) {
+		super(MsgType.kJoin);
 		id_ = msg.getId();
 		listening_port_ = msg.getListeningPort();
 		seq_num_ = msg.getSeqNum();
@@ -333,22 +333,27 @@ class MoveMsg extends Message {
 		buffer_ = buffer;
 	}
 	
-	public MoveMsg(char direction) {
+	public MoveMsg(char direction, int seq_num) {
 		super(MsgType.kMove);
 		direction_ = direction;
+		seq_num_ = seq_num;
 	}
 	
 	char getDirection() { return direction_; }
+	int getSeqNum() { return seq_num_; }
 
 	@Override
 	protected void serializeImpl() {
 		buffer_.putChar(direction_);
+		buffer_.putInt(seq_num_);
 	}
 
 	@Override
 	protected void deserializeImpl() {
 		direction_ = buffer_.getChar();
+		seq_num_ = buffer_.getInt();
 	}
 	
 	private char direction_;
+	private int seq_num_;
 }
