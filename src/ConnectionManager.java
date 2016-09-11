@@ -9,7 +9,6 @@ import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
 
-
 interface ServerSocketListenerI {
 	public abstract void onAccepted(Connection connection);
 }
@@ -18,11 +17,12 @@ class SelectorCmd {
 	enum Type {
 		kAdd, kRemove
 	}
-	
+
 	public SelectorCmd(Type type, Connection connection) {
 		this.type = type;
 		this.connection = connection;
 	}
+
 	Connection connection;
 	Type type;
 }
@@ -35,9 +35,13 @@ public class ConnectionManager implements Runnable {
 		selector_cmds_ = new ArrayList<SelectorCmd>();
 	}
 
-	public String getLocalHost() { return local_host_; }
+	public String getLocalHost() {
+		return local_host_;
+	}
 
-	public int getListeningPort() { return listening_port_; }
+	public int getListeningPort() {
+		return listening_port_;
+	}
 
 	public boolean start() {
 		try {
@@ -49,11 +53,11 @@ public class ConnectionManager implements Runnable {
 			InetSocketAddress address = (InetSocketAddress) socket.getLocalAddress();
 			local_host_ = InetAddress.getLocalHost().getHostAddress();
 			listening_port_ = address.getPort();
-			System.out.format(
-					"ConnectionManager::start() local_host[%s] listening_port[%s]\n", local_host_, listening_port_);
+			System.out.format("ConnectionManager::start() local_host[%s] listening_port[%s]\n", local_host_,
+					listening_port_);
 
 			socket.register(selector_, SelectionKey.OP_ACCEPT);
-			
+
 			thread_ = new Thread(this);
 			thread_.start();
 			return true;
@@ -62,11 +66,11 @@ public class ConnectionManager implements Runnable {
 		}
 		return false;
 	}
-	
+
 	public void stop() {
 		running_ = false;
 		selector_.wakeup();
-		
+
 		try {
 			thread_.join(1000);
 		} catch (InterruptedException e) {
@@ -75,15 +79,13 @@ public class ConnectionManager implements Runnable {
 	}
 
 	public Connection connect(String remote_host, int remote_port) {
-		System.out.format("ConnectionManager::connect() connecting to remote[%s:%s]\n",
-				remote_host, remote_port);
+		System.out.format("ConnectionManager::connect() connecting to remote[%s:%s]\n", remote_host, remote_port);
 		try {
-			SocketChannel socket = SocketChannel
-					.open(new InetSocketAddress(remote_host, remote_port));
+			SocketChannel socket = SocketChannel.open(new InetSocketAddress(remote_host, remote_port));
 			socket.configureBlocking(false);
-			System.out.format("ConnectionManager::connect() connected local[%s] remote[%s]\n",
-					socket.getLocalAddress(), socket.getRemoteAddress());
-	
+			System.out.format("ConnectionManager::connect() connected local[%s] remote[%s]\n", socket.getLocalAddress(),
+					socket.getRemoteAddress());
+
 			Connection connection = new Connection(socket);
 			synchronized (selector_cmds_) {
 				selector_cmds_.add(new SelectorCmd(SelectorCmd.Type.kAdd, connection));
@@ -92,11 +94,12 @@ public class ConnectionManager implements Runnable {
 			return connection;
 		} catch (IOException e) {
 			// e.printStackTrace();
-			System.out.format("ConnectionManager::connect() failed to connect remote[%s:%s]\n", remote_host, remote_port);
+			System.out.format("ConnectionManager::connect() failed to connect remote[%s:%s]\n", remote_host,
+					remote_port);
 		}
 		return null;
 	}
-	
+
 	public void close(Connection connection) {
 		synchronized (selector_cmds_) {
 			selector_cmds_.add(new SelectorCmd(SelectorCmd.Type.kRemove, connection));
@@ -112,7 +115,7 @@ public class ConnectionManager implements Runnable {
 			} catch (IOException | ClosedSelectorException ex) {
 				ex.printStackTrace();
 			}
-			
+
 			for (SelectionKey key : selector_.selectedKeys()) {
 				if (key.isValid()) {
 					if (key.isAcceptable()) {
@@ -125,7 +128,7 @@ public class ConnectionManager implements Runnable {
 				}
 			}
 			selector_.selectedKeys().clear();
-			
+
 			synchronized (selector_cmds_) {
 				for (SelectorCmd cmd : selector_cmds_) {
 					SocketChannel socket = cmd.connection.getSocket();
@@ -191,7 +194,7 @@ public class ConnectionManager implements Runnable {
 	private int listening_port_;
 	private ServerSocketListenerI listener_;
 	private Selector selector_;
-	
+
 	private ArrayList<SelectorCmd> selector_cmds_;
 
 	private volatile boolean running_;

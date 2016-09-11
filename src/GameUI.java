@@ -2,54 +2,56 @@ import javax.swing.*;
 import java.awt.*;
 import java.util.Random;
 
-public class GameUI extends JFrame{
-    int[] treasure = {1, 42, 70, 30, 22, 64};
+public class GameUI extends JFrame {
+	private static final long serialVersionUID = -4407424276798218633L;
 
-    GameInfoPanel infoPanel = new GameInfoPanel(3);
-    JPanel playerListPanel = new JPanel();
-    ControlPanel controlPanel = new ControlPanel();
-    GameBoard board = new GameBoard(9, 380, 380, treasure);
+	int[] treasure = { 1, 42, 70, 30, 22, 64 };
 
-    public static void main(String[] args){
-        new GameUI();
-    }
+	GameInfoPanel infoPanel = new GameInfoPanel(3);
+	JPanel playerListPanel = new JPanel();
+	ControlPanel controlPanel = new ControlPanel();
+	GameBoard board = new GameBoard(9, 380, 380, treasure);
 
-    public GameUI(){
-        super("Maze Game");
-        setSize(800, 600);
-        setResizable(false);
+	public static void main(String[] args) {
+		new GameUI();
+	}
 
-        infoPanel.setBackground(Color.CYAN);
-        playerListPanel.setBackground(Color.BLUE);
-        controlPanel.setBackground(Color.green);
+	public GameUI() {
+		super("Maze Game");
+		setSize(800, 600);
+		setResizable(false);
 
-        infoPanel.setSize(800,100);
-        playerListPanel.setSize(200, 400);
-        controlPanel.setSize(800, 100);
+		infoPanel.setBackground(Color.CYAN);
+		playerListPanel.setBackground(Color.BLUE);
+		controlPanel.setBackground(Color.green);
 
-        for (int i = 0; i < 3; i++){
-            Random rand = new Random();
-            int n = rand.nextInt(50);
+		infoPanel.setSize(800, 100);
+		playerListPanel.setSize(200, 400);
+		controlPanel.setSize(800, 100);
 
-            PlayerInfoPanel playerInfoPanel = new PlayerInfoPanel("Player " + i, n, i);
-            playerInfoPanel.setBackground(Color.yellow);
-            playerInfoPanel.setSize(150, 300);
+		for (int i = 0; i < 3; i++) {
+			Random rand = new Random();
+			int n = rand.nextInt(50);
 
-            playerListPanel.add(playerInfoPanel);
-        }
+			PlayerInfoPanel playerInfoPanel = new PlayerInfoPanel("Player " + i, n, i);
+			playerInfoPanel.setBackground(Color.yellow);
+			playerInfoPanel.setSize(150, 300);
 
-        add(infoPanel);
-        add(playerListPanel);
-        add(board);
-        add(controlPanel);
+			playerListPanel.add(playerInfoPanel);
+		}
 
-        getContentPane().setLayout(null);
-        infoPanel.setLocation(0, 0);
-        playerListPanel.setLocation(600, 100);
-        board.setLocation(110, 110);
-        controlPanel.setLocation(0, 500);
+		add(infoPanel);
+		add(playerListPanel);
+		add(board);
+		add(controlPanel);
 
-        setVisible(true);
-        setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
-    }
+		getContentPane().setLayout(null);
+		infoPanel.setLocation(0, 0);
+		playerListPanel.setLocation(600, 100);
+		board.setLocation(110, 110);
+		controlPanel.setLocation(0, 500);
+
+		setVisible(true);
+		setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
+	}
 }

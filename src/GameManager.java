@@ -9,19 +9,27 @@ public class GameManager implements ServerSocketListenerI, ConnectionListenerI, 
 		tracker_host_ = tracker_host;
 		tracker_port_ = tracker_port;
 		player_id_ = player_id;
-		
+
 		server_ = new ConnectionManager(0, this);
-		
+
 		role_manager_ = new PlayerManager(this);
 		player_list_ = new ArrayList<Player>();
 	}
 
-	public String getPlayerId() { return player_id_; }
-	public String getLocalHost() { return server_.getLocalHost(); }
-	public int getListeningPort() { return server_.getListeningPort(); }
-	
+	public String getPlayerId() {
+		return player_id_;
+	}
+
+	public String getLocalHost() {
+		return server_.getLocalHost();
+	}
+
+	public int getListeningPort() {
+		return server_.getListeningPort();
+	}
+
 	public boolean start() {
-		if (!server_.start()) 
+		if (!server_.start())
 			return false;
 
 		if (connectTracker()) {
@@ -33,7 +41,7 @@ public class GameManager implements ServerSocketListenerI, ConnectionListenerI, 
 		}
 		return false;
 	}
-	
+
 	public void stop() {
 		running_ = false;
 		thread_.interrupt();
@@ -48,7 +56,7 @@ public class GameManager implements ServerSocketListenerI, ConnectionListenerI, 
 			server_.stop();
 		}
 	}
-	
+
 	public void run() {
 		System.out.println("GameManager::run() started");
 		BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
@@ -58,15 +66,17 @@ public class GameManager implements ServerSocketListenerI, ConnectionListenerI, 
 					Thread.sleep(200);
 				}
 				String line = br.readLine();
-				if (line.isEmpty()) continue;
-				
+				if (line.isEmpty())
+					continue;
+
 				char direction = line.charAt(0);
 				System.out.format("move direction[%s]\n", direction);
 				synchronized (this) {
 					role_manager_.move(direction);
 				}
-				
-				if (direction == '9') break;
+
+				if (direction == '9')
+					break;
 			} catch (IOException | InterruptedException e) {
 				// e.printStackTrace();
 			}
@@ -77,7 +87,6 @@ public class GameManager implements ServerSocketListenerI, ConnectionListenerI, 
 		}
 		System.out.println("GameManager::run() stopped");
 	}
-	
 
 	@Override
 	public void onAccepted(Connection connection) {
@@ -87,7 +96,7 @@ public class GameManager implements ServerSocketListenerI, ConnectionListenerI, 
 			player_list_.add(player);
 		}
 	}
-	
+
 	@Override
 	public void onDisconnected(Connection connection) {
 		synchronized (this) {
@@ -115,7 +124,7 @@ public class GameManager implements ServerSocketListenerI, ConnectionListenerI, 
 			break;
 		}
 	}
-	
+
 	public Player getPlayer(String host, int listening_port) {
 		synchronized (this) {
 			for (Player player : player_list_) {
@@ -126,9 +135,11 @@ public class GameManager implements ServerSocketListenerI, ConnectionListenerI, 
 		}
 		return null;
 	}
-	
-	public Connection getTracker() { return tracker_; }
-	
+
+	public Connection getTracker() {
+		return tracker_;
+	}
+
 	public boolean connectTracker() {
 		if (tracker_ == null) {
 			tracker_ = server_.connect(tracker_host_, tracker_port_);
@@ -141,7 +152,7 @@ public class GameManager implements ServerSocketListenerI, ConnectionListenerI, 
 		}
 		return true;
 	}
-	
+
 	public void disconnectTracker() {
 		if (tracker_ != null) {
 			server_.close(tracker_);
@@ -149,7 +160,7 @@ public class GameManager implements ServerSocketListenerI, ConnectionListenerI, 
 			System.out.println("PlayerManager::OnMessage() disconnected from Tracker");
 		}
 	}
-	
+
 	public Player connect(String host, int port) {
 		Connection connection = server_.connect(host, port);
 		if (connection != null) {
@@ -164,33 +175,34 @@ public class GameManager implements ServerSocketListenerI, ConnectionListenerI, 
 			return null;
 		}
 	}
-	
+
 	public void promotePrimary(PlayerManager pm) {
 		System.out.println("GameManager::promotePrimary() promote to Primary server 1");
 		PrimaryManager new_rm = new PrimaryManager(this);
 		new_rm.promote(pm);
 		role_manager_ = new_rm;
 	}
-	
+
 	public void promotePrimary(SecondaryManager sm) {
 		System.out.println("GameManager::promotePrimary() promote to Primary sever 2");
 		PrimaryManager new_rm = new PrimaryManager(this);
 		new_rm.promote(sm);
 		role_manager_ = new_rm;
 	}
-	
+
 	public void promoteSecondary(PlayerManager pm) {
 		System.out.println("GameManager::promoteSecondary() promote to Secondary server");
 		SecondaryManager new_rm = new SecondaryManager(this);
 		new_rm.promote(pm);
 		role_manager_ = new_rm;
 	}
-	
+
 	public void onDisconnected(Player player) {
 		synchronized (this) {
 			kickPlayer(player);
 		}
 	}
+
 	public void handle(Player player, InfoMsg info) {
 		if (info.deserialize()) {
 			synchronized (this) {
@@ -198,6 +210,7 @@ public class GameManager implements ServerSocketListenerI, ConnectionListenerI, 
 			}
 		}
 	}
+
 	public void handle(Player player, JoinMsg msg) {
 		synchronized (this) {
 			if (msg.deserialize()) {
@@ -207,7 +220,7 @@ public class GameManager implements ServerSocketListenerI, ConnectionListenerI, 
 			}
 		}
 	}
-	
+
 	public void handle(Player player, PlayersStateMsg msg) {
 		synchronized (this) {
 			if (msg.deserialize()) {
@@ -217,13 +230,13 @@ public class GameManager implements ServerSocketListenerI, ConnectionListenerI, 
 			}
 		}
 	}
-	
+
 	public void handle(Player player, MazeStateMsg msg) {
 		synchronized (this) {
 			role_manager_.handle(msg);
 		}
 	}
-	
+
 	public void handle(Player player, MoveMsg msg) {
 		synchronized (this) {
 			if (msg.deserialize()) {
@@ -233,30 +246,30 @@ public class GameManager implements ServerSocketListenerI, ConnectionListenerI, 
 			}
 		}
 	}
-	
+
 	public void broadcast(InfoMsg info) {
 		for (Player player : player_list_) {
 			player.getConnection().write(info);
 		}
 	}
-	
+
 	public void kickPlayer(Player player) {
 		player.stop();
 		server_.close(player.getConnection());
 		player_list_.remove(player);
 		role_manager_.onDisconnected(player);
 	}
-	
+
 	private String tracker_host_;
 	private int tracker_port_;
 	private String player_id_;
-	
+
 	private ConnectionManager server_;
 	private Connection tracker_;
-	
+
 	private volatile boolean running_;
 	private Thread thread_;
-	
+
 	private RoleManager role_manager_;
 	private ArrayList<Player> player_list_;
 }

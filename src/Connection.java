@@ -5,6 +5,7 @@ import java.nio.channels.SocketChannel;
 
 interface ConnectionListenerI {
 	public abstract void onDisconnected(Connection connection);
+
 	public abstract void onData(Connection connection, ByteBuffer buffer);
 }
 
@@ -12,14 +13,14 @@ public class Connection {
 	public Connection(SocketChannel socket) {
 		socket_ = socket;
 		try {
-			remote_host_ = ((InetSocketAddress)socket_.getRemoteAddress()).getHostString();
-			remote_port_ = ((InetSocketAddress)socket_.getRemoteAddress()).getPort();
+			remote_host_ = ((InetSocketAddress) socket_.getRemoteAddress()).getHostString();
+			remote_port_ = ((InetSocketAddress) socket_.getRemoteAddress()).getPort();
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
 		read_buffer_ = ByteBuffer.allocate(1024 * 1024);
 	}
-	
+
 	public Connection(String remote_host, int remote_port) {
 		socket_ = null;
 		remote_host_ = remote_host;
@@ -30,17 +31,28 @@ public class Connection {
 	public void set_listener(ConnectionListenerI listener) {
 		listener_ = listener;
 	}
-	
-	public String getRemoteHost() { return remote_host_; }
-	public int getRemotePort() { return remote_port_; }
-	public String getRemoteAddress() { return String.format("%s:%s", getRemoteHost(), getRemotePort()); }
-	public SocketChannel getSocket() { return socket_; }
-	
+
+	public String getRemoteHost() {
+		return remote_host_;
+	}
+
+	public int getRemotePort() {
+		return remote_port_;
+	}
+
+	public String getRemoteAddress() {
+		return String.format("%s:%s", getRemoteHost(), getRemotePort());
+	}
+
+	public SocketChannel getSocket() {
+		return socket_;
+	}
+
 	public void write(Message msg) {
 		msg.serialize();
 		try {
-			System.out.format("Connection::write() size[%s] remote[%s] %s\n", 
-					msg.getBuffer().remaining(), getRemoteAddress(), msg);
+			System.out.format("Connection::write() size[%s] remote[%s] %s\n", msg.getBuffer().remaining(),
+					getRemoteAddress(), msg);
 			while (msg.getBuffer().hasRemaining()) {
 				socket_.write(msg.getBuffer());
 			}
@@ -48,7 +60,7 @@ public class Connection {
 			System.out.println("Connection::write() failed");
 		}
 	}
-	
+
 	public void read() {
 		int num = -1;
 		try {
@@ -56,12 +68,13 @@ public class Connection {
 		} catch (IOException ex) {
 			// ex.printStackTrace();
 		}
-		
+
 		if (num == 0) {
 			return;
 		} else if (num == -1) {
 			System.out.format("Connection::read() connection closed by remote[%s]\n", getRemoteAddress());
-			if (listener_ != null) listener_.onDisconnected(this);
+			if (listener_ != null)
+				listener_.onDisconnected(this);
 		} else {
 			System.out.format("Connection::read() size[%s] remote[%s]\n", num, getRemoteAddress());
 
@@ -75,7 +88,8 @@ public class Connection {
 				byte[] buffer = new byte[message_len - 4];
 				read_buffer_.get(buffer, 0, message_len - 4);
 
-				if (listener_ != null) listener_.onData(this, ByteBuffer.wrap(buffer));
+				if (listener_ != null)
+					listener_.onData(this, ByteBuffer.wrap(buffer));
 			}
 			if (read_buffer_.position() < num) {
 				int i = 0;
@@ -86,11 +100,11 @@ public class Connection {
 			} else {
 				read_buffer_.rewind();
 			}
-			
+
 			System.out.format("Connection::read() buffer_position[%s]\n", read_buffer_.position());
 		}
 	}
-	
+
 	private SocketChannel socket_;
 	private String remote_host_;
 	private int remote_port_;

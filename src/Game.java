@@ -9,10 +9,10 @@ public class Game {
 		String ip = args[0];
 		int port = Integer.parseInt(args[1]);
 		String id = args[2];
-		
+
 		final GameManager manager = new GameManager(ip, port, id);
 		manager.start();
-		
+
 		Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
 			public void run() {
 				System.out.println("Game::main() !Interrupted!");

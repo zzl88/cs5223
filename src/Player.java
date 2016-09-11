@@ -11,13 +11,13 @@ public class Player implements ConnectionListenerI, Runnable {
 		connection.set_listener(this);
 		msg_queue_ = new LinkedBlockingQueue<ByteBuffer>();
 	}
-	
+
 	public void start() {
 		running_ = true;
 		thread_ = new Thread(this);
 		thread_.start();
 	}
-	
+
 	public void stop() {
 		running_ = false;
 		try {
@@ -31,7 +31,7 @@ public class Player implements ConnectionListenerI, Runnable {
 			e.printStackTrace();
 		}
 	}
-	
+
 	@Override
 	public void onDisconnected(Connection connection) {
 		gm_.onDisconnected(this);
@@ -46,7 +46,7 @@ public class Player implements ConnectionListenerI, Runnable {
 			e.printStackTrace();
 		}
 	}
-	
+
 	@Override
 	public void run() {
 		System.out.println("Player::run() started");
@@ -83,17 +83,25 @@ public class Player implements ConnectionListenerI, Runnable {
 		}
 		System.out.println("Player::run() stopped");
 	}
-	
-	public void setState(PlayerState state) { state_ = state; }
-	public Connection getConnection() { return connection_; }
-	public PlayerState getState() { return state_; }
-	
+
+	public void setState(PlayerState state) {
+		state_ = state;
+	}
+
+	public Connection getConnection() {
+		return connection_;
+	}
+
+	public PlayerState getState() {
+		return state_;
+	}
+
 	private Connection connection_;
 	private GameManager gm_;
 	private PlayerState state_;
-	
+
 	private BlockingQueue<ByteBuffer> msg_queue_;
-	
+
 	private volatile boolean running_;
 	private Thread thread_;
 }

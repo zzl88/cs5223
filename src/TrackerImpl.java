@@ -7,11 +7,11 @@ public class TrackerImpl implements ServerSocketListenerI, ConnectionListenerI {
 		server_ = new ConnectionManager(listening_port, this);
 		connections_ = new ArrayList<Connection>();
 	}
-	
+
 	public boolean start() {
 		return server_.start();
 	}
-	
+
 	public void stop() {
 		server_.stop();
 	}
@@ -31,7 +31,7 @@ public class TrackerImpl implements ServerSocketListenerI, ConnectionListenerI {
 		System.out.format("TrackerImpl::OnDisconnected() Client disconnected count[%s]\n", connections_.size());
 		if (connections_.isEmpty()) {
 			info_.clearPeers();
-			System.out.println("TrackerImpl::OnDisconnected() clear peers"); 
+			System.out.println("TrackerImpl::OnDisconnected() clear peers");
 		}
 	}
 
