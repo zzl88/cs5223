@@ -91,7 +91,8 @@ public class ConnectionManager implements Runnable {
 			selector_.wakeup();
 			return connection;
 		} catch (IOException e) {
-			e.printStackTrace();
+			// e.printStackTrace();
+			System.out.format("ConnectionManager::connect() failed to connect remote[%s:%s]\n", remote_host, remote_port);
 		}
 		return null;
 	}
@@ -112,8 +113,6 @@ public class ConnectionManager implements Runnable {
 				ex.printStackTrace();
 			}
 			
-			System.out.println("ConnectionManager::run() iterate");
-
 			for (SelectionKey key : selector_.selectedKeys()) {
 				if (key.isValid()) {
 					if (key.isAcceptable()) {

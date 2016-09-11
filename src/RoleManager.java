@@ -24,14 +24,13 @@ public abstract class RoleManager {
 	public HashMap<Integer, Message> getHistory() { return history_; }
 
 	public abstract void handle(InfoMsg info);
+	public abstract void handle(Player player, JoinMsg msg);
 	public abstract void handle(Player player, PlayersStateMsg state);
 	public abstract void handle(MazeStateMsg msg);
 	public abstract void handle(Player player, MoveMsg msg);
 	
 	public abstract void onTrackerDown();
-	public abstract void onAccepted(Player player);
 	public abstract void onDisconnected(Player player);
-	public abstract void onJoined(Player player);
 	
 	public abstract void move(char direction);
 
@@ -100,39 +99,35 @@ class PrimaryManager extends RoleManager {
 	
 	@Override
 	public void handle(Player player, MoveMsg msg) {
-		System.out.println("PrimaryManager::handle() MoveMsg");
-		synchronized (playground_) {
-			switch (msg.getDirection()) {
-			case '1':
-				playground_.moveWest(player.getState());
-				break;
-			case '2':
-				playground_.moveSouth(player.getState());
-				break;
-			case '3':
-				playground_.moveEast(player.getState());
-				break;
-			case '4':
-				playground_.moveNorth(player.getState());
-				break;
-			case '5':
-				break;
-			case '9':
-				break;
-			default:
-				break;
-			}
-			if (secondary_ != null) {
-				secondary_.getConnection().write(player_states_);
-				secondary_.getConnection().write(new MazeStateMsg(playground_));
-			}
-			player.getConnection().write(player_states_);
-			player.getConnection().write(new MazeStateMsg(playground_));
+		System.out.format("PrimaryManager::handle() MoveMsg player[%s] direction[%s]\n", player.getState().id, msg.getDirection());
+		switch (msg.getDirection()) {
+		case '1':
+			playground_.moveWest(player.getState());
+			break;
+		case '2':
+			playground_.moveSouth(player.getState());
+			break;
+		case '3':
+			playground_.moveEast(player.getState());
+			break;
+		case '4':
+			playground_.moveNorth(player.getState());
+			break;
+		case '0':
+			break;
+		case '9':
+			gm_.kickPlayer(player);
+			return;
+		default:
+			break;
 		}
-	}
-	
-	@Override
-	public void onAccepted(Player player) {
+		player.getState().last_seq_num = msg.getSeqNum();
+		if (secondary_ != null && secondary_ != player) {
+			secondary_.getConnection().write(player_states_);
+			secondary_.getConnection().write(new MazeStateMsg(playground_));
+		}
+		player.getConnection().write(player_states_);
+		player.getConnection().write(new MazeStateMsg(playground_));
 	}
 
 	@Override
@@ -169,76 +164,74 @@ class PrimaryManager extends RoleManager {
 	}
 	
 	@Override
-	public void onJoined(Player player) {
-		PlayerState state = player.getState();
-		synchronized (playground_) {
-			for (PlayerState p : player_states_.getPlayersState()) {
-				if (p.host.equals(state.host) && p.listening_port == state.listening_port) {
-					player.setState(p);
-					System.out.format("PrimaryManager::onJoined() update %s", p);
-					break;
-				}
+	public void handle(Player player, JoinMsg msg) {
+		PlayerState state = new PlayerState(msg.getId(), msg.getHost(), msg.getListeningPort());
+		player.setState(state);
+		for (PlayerState p : player_states_.getPlayersState()) {
+			if (p.host.equals(state.host) && p.listening_port == state.listening_port) {
+				player.setState(p);
+				System.out.format("PrimaryManager::onJoined() update %s", p);
+				break;
 			}
-			
-			state = player.getState();
-			if (state.x == -1) {
-				playground_.initPlayer(state);
-				player_states_.addPlayer(state);
-			}
-			
-			info_.addPeer(state.host, state.listening_port);
-
-			if (info_.getPeers().size() >= 2) {
-				TrackerPeerInfo secondary = info_.getPeers().get(1);
-				if (secondary.host.equals(state.host) && secondary.listening_port == state.listening_port) {
-					secondary_ = player;
-					System.out.println("PrimaryManager::onJoined() secondary server joined");
-				} else {
-					System.out.format("PrimaryManager::onJoined() player joined id[%s]\n", state.id);
-				}
-			} else {
-				System.out.println("PrimaryManager::onJoined() ERR: wrong peer count");
-			}
-			gm_.getTracker().write(info_);
-			gm_.broadcast(info_);
-			
-			if (secondary_ != null) {
-				secondary_.getConnection().write(player_states_);
-				secondary_.getConnection().write(new MazeStateMsg(playground_));
-			}
-			
-			player.getConnection().write(player_states_);
-			player.getConnection().write(new MazeStateMsg(playground_));
 		}
+		
+		state = player.getState();
+		if (state.x == -1) {
+			playground_.initPlayer(state);
+			player_states_.addPlayer(state);
+		}
+		
+		info_.addPeer(state.host, state.listening_port);
+
+		if (info_.getPeers().size() >= 2) {
+			TrackerPeerInfo secondary = info_.getPeers().get(1);
+			if (secondary.host.equals(state.host) && secondary.listening_port == state.listening_port) {
+				secondary_ = player;
+				System.out.println("PrimaryManager::onJoined() secondary server joined");
+			} else {
+				System.out.format("PrimaryManager::onJoined() player joined id[%s]\n", state.id);
+			}
+		} else {
+			System.out.println("PrimaryManager::onJoined() ERR: wrong peer count");
+		}
+		gm_.getTracker().write(info_);
+		gm_.broadcast(info_);
+		
+		if (secondary_ != null) {
+			secondary_.getConnection().write(player_states_);
+			secondary_.getConnection().write(new MazeStateMsg(playground_));
+		}
+		
+		player.getConnection().write(player_states_);
+		player.getConnection().write(new MazeStateMsg(playground_));
 	}
 	
 	@Override
 	public void move(char direction) {
-		synchronized (playground_) {
-			switch (direction) {
-			case '1':
-				playground_.moveWest(self_);
-				break;
-			case '2':
-				playground_.moveSouth(self_);
-				break;
-			case '3':
-				playground_.moveEast(self_);
-				break;
-			case '4':
-				playground_.moveNorth(self_);
-				break;
-			case '9':
-				break;
-			default:
-				break;
-			}
-			++self_.last_seq_num;
-			++cur_seq_num_;
-			if (secondary_ != null) {
-				secondary_.getConnection().write(player_states_);
-				secondary_.getConnection().write(new MazeStateMsg(playground_));
-			}
+		switch (direction) {
+		case '1':
+			playground_.moveWest(self_);
+			break;
+		case '2':
+			playground_.moveSouth(self_);
+			break;
+		case '3':
+			playground_.moveEast(self_);
+			break;
+		case '4':
+			playground_.moveNorth(self_);
+			break;
+		case '9':
+			gm_.stop();
+			break;
+		default:
+			break;
+		}
+		++self_.last_seq_num;
+		++cur_seq_num_;
+		if (secondary_ != null) {
+			secondary_.getConnection().write(player_states_);
+			secondary_.getConnection().write(new MazeStateMsg(playground_));
 		}
 	}
 
@@ -307,12 +300,6 @@ class PlayerManager extends RoleManager {
 	public void handle(Player player, MoveMsg msg) {
 		System.out.println("PlayerManager::handle() unexpected kMove");
 	}
-	
-	@Override
-	public void onAccepted(Player player) {
-		System.out.format("PlayerManager::onAccepted() unexpected connection[%s]\n", 
-				player.getConnection().getRemoteAddress());
-	}
 
 	@Override
 	public void onDisconnected(Player player) {
@@ -326,8 +313,8 @@ class PlayerManager extends RoleManager {
 	}
 	
 	@Override
-	public void onJoined(Player player) {
-		System.out.println("PlayerManager::onJoined() WRN: unexpected");
+	public void handle(Player player, JoinMsg msg) {
+		System.out.println("PlayerManager::handle() JoinMsg WRN: unexpected");
 	}
 	
 	@Override

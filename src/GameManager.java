@@ -1,7 +1,8 @@
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Scanner;
 
 public class GameManager implements ServerSocketListenerI, ConnectionListenerI, Runnable {
 	public GameManager(String tracker_host, int tracker_port, String player_id) {
@@ -25,6 +26,7 @@ public class GameManager implements ServerSocketListenerI, ConnectionListenerI, 
 
 		if (connectTracker()) {
 			System.out.println("GameManager::start() connected tracker");
+			running_ = true;
 			thread_ = new Thread(this);
 			thread_.start();
 			return true;
@@ -33,11 +35,8 @@ public class GameManager implements ServerSocketListenerI, ConnectionListenerI, 
 	}
 	
 	public void stop() {
-		try {
-			System.in.close();
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
+		running_ = false;
+		thread_.interrupt();
 		synchronized (this) {
 			if (tracker_ != null)
 				server_.close(tracker_);
@@ -52,13 +51,30 @@ public class GameManager implements ServerSocketListenerI, ConnectionListenerI, 
 	
 	public void run() {
 		System.out.println("GameManager::run() started");
-		Scanner sc = new Scanner(System.in);
-		while (sc.hasNext()) {
-			synchronized (this) {
-				role_manager_.move(sc.nextLine().charAt(0));
+		BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
+		while (running_) {
+			try {
+				while (!br.ready()) {
+					Thread.sleep(200);
+				}
+				String line = br.readLine();
+				if (line.isEmpty()) continue;
+				
+				char direction = line.charAt(0);
+				System.out.format("move direction[%s]\n", direction);
+				synchronized (this) {
+					role_manager_.move(direction);
+				}
+				
+				if (direction == '9') break;
+			} catch (IOException | InterruptedException e) {
+				// e.printStackTrace();
 			}
 		}
-		sc.close();
+		try {
+			br.close();
+		} catch (IOException e) {
+		}
 		System.out.println("GameManager::run() stopped");
 	}
 	
@@ -69,7 +85,6 @@ public class GameManager implements ServerSocketListenerI, ConnectionListenerI, 
 		player.start();
 		synchronized (this) {
 			player_list_.add(player);
-			role_manager_.onAccepted(player);
 		}
 	}
 	
@@ -186,9 +201,7 @@ public class GameManager implements ServerSocketListenerI, ConnectionListenerI, 
 	public void handle(Player player, JoinMsg msg) {
 		synchronized (this) {
 			if (msg.deserialize()) {
-				PlayerState state = new PlayerState(msg.getId(), msg.getHost(), msg.getListeningPort());
-				player.setState(state);
-				role_manager_.onJoined(player);
+				role_manager_.handle(player, msg);
 			} else {
 				kickPlayer(player);
 			}
@@ -227,7 +240,7 @@ public class GameManager implements ServerSocketListenerI, ConnectionListenerI, 
 		}
 	}
 	
-	private void kickPlayer(Player player) {
+	public void kickPlayer(Player player) {
 		player.stop();
 		server_.close(player.getConnection());
 		player_list_.remove(player);
@@ -241,6 +254,7 @@ public class GameManager implements ServerSocketListenerI, ConnectionListenerI, 
 	private ConnectionManager server_;
 	private Connection tracker_;
 	
+	private volatile boolean running_;
 	private Thread thread_;
 	
 	private RoleManager role_manager_;

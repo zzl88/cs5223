@@ -1,3 +1,4 @@
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -19,6 +20,11 @@ public class Player implements ConnectionListenerI, Runnable {
 	
 	public void stop() {
 		running_ = false;
+		try {
+			connection_.getSocket().close();
+		} catch (IOException e1) {
+			e1.printStackTrace();
+		}
 		try {
 			thread_.join(1000);
 		} catch (InterruptedException e) {

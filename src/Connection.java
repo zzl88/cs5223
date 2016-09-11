@@ -44,7 +44,7 @@ public class Connection {
 			while (msg.getBuffer().hasRemaining()) {
 				socket_.write(msg.getBuffer());
 			}
-		} catch (IOException e) {
+		} catch (Exception e) {
 			System.out.println("Connection::write() failed");
 		}
 	}
