@@ -49,7 +49,7 @@ public class Connection {
 	}
 
 	public void write(Message msg) {
-		msg.serialize();
+		msg.getBuffer().rewind();
 		try {
 			System.out.format("Connection::write() size[%s] remote[%s] %s\n", msg.getBuffer().remaining(),
 					getRemoteAddress(), msg);

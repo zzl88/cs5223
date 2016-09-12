@@ -141,12 +141,8 @@ class PrimaryManager extends RoleManager {
 			break;
 		}
 		player.getState().last_seq_num = msg.getSeqNum();
-		if (secondary_ != null && secondary_ != player) {
-			secondary_.getConnection().write(player_states_);
-			secondary_.getConnection().write(new MazeStateMsg(playground_));
-		}
-		player.getConnection().write(player_states_);
-		player.getConnection().write(new MazeStateMsg(playground_));
+
+		update(player);
 	}
 
 	@Override
@@ -177,10 +173,7 @@ class PrimaryManager extends RoleManager {
 		}
 		gm_.broadcast(info_);
 
-		if (secondary_ != null) {
-			secondary_.getConnection().write(player_states_);
-			secondary_.getConnection().write(new MazeStateMsg(playground_));
-		}
+		update(null);
 	}
 
 	@Override
@@ -216,14 +209,7 @@ class PrimaryManager extends RoleManager {
 		}
 		gm_.getTracker().write(info_);
 		gm_.broadcast(info_);
-
-		if (secondary_ != null) {
-			secondary_.getConnection().write(player_states_);
-			secondary_.getConnection().write(new MazeStateMsg(playground_));
-		}
-
-		player.getConnection().write(player_states_);
-		player.getConnection().write(new MazeStateMsg(playground_));
+		update(player);
 	}
 
 	@Override
@@ -249,10 +235,23 @@ class PrimaryManager extends RoleManager {
 		}
 		++self_.last_seq_num;
 		++cur_seq_num_;
+		update(null);
+	}
+
+	private void update(Player player) {
+		player_states_.serialize();
+		MazeStateMsg msg = new MazeStateMsg(playground_);
+		msg.serialize();
 		if (secondary_ != null) {
 			secondary_.getConnection().write(player_states_);
-			secondary_.getConnection().write(new MazeStateMsg(playground_));
+			secondary_.getConnection().write(msg);
 		}
+		if (player != null && player != secondary_) {
+			secondary_.getConnection().write(player_states_);
+			secondary_.getConnection().write(msg);
+		}
+		gm_.updateGUI(player_states_);
+		gm_.updateGUI(msg);
 	}
 
 	private PlayerState self_;
@@ -280,6 +279,7 @@ class PlayerManager extends RoleManager {
 
 		if (playground_ == null) {
 			playground_ = new Playground(info_.getN(), info_.getK());
+			gm_.startGUI(info_.getN());
 		}
 
 		if (info_.getPeers().isEmpty()) {
@@ -307,6 +307,7 @@ class PlayerManager extends RoleManager {
 	public void handle(Player player, PlayersStateMsg msg) {
 		System.out.println("PlayerManager::handle() kPlayerState");
 		player_states_ = msg;
+		gm_.updateGUI(msg);
 	}
 
 	@Override
@@ -314,6 +315,7 @@ class PlayerManager extends RoleManager {
 		System.out.println("PlayerManager::handle() kMazeState");
 		msg.setPlayground(playground_);
 		msg.deserialize();
+		gm_.updateGUI(msg);
 	}
 
 	@Override
@@ -341,6 +343,7 @@ class PlayerManager extends RoleManager {
 	public void move(char direction) {
 		if (primary_ != null) {
 			MoveMsg msg = new MoveMsg(direction, ++cur_seq_num_);
+			msg.serialize();
 			primary_.getConnection().write(msg);
 			history_.put(cur_seq_num_, msg);
 		}
@@ -355,6 +358,7 @@ class PlayerManager extends RoleManager {
 			} else {
 				JoinMsg msg = new JoinMsg(gm_.getPlayerId(), gm_.getLocalHost(), gm_.getListeningPort(), cur_seq_num_);
 				history_.put(cur_seq_num_, new JoinMsg(msg));
+				msg.serialize();
 				primary_.getConnection().write(msg);
 			}
 		}
@@ -384,6 +388,11 @@ class SecondaryManager extends PlayerManager {
 		for (TrackerPeerInfo peer : info_.getPeers()) {
 			System.out.format("    peer host[%s] port[%s]\n", peer.host, peer.listening_port);
 		}
+	}
+
+	public void handle(Player player, JoinMsg msg) {
+		System.out.println("SecondaryManager::handle() JoinMsg");
+		// TODO(x) should handle the join in case other players gets disconnected from primary first
 	}
 
 	public void onDisconnected(Player player) {

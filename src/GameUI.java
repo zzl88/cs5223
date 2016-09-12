@@ -2,7 +2,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.util.Random;
 
-public class GameUI extends JFrame {
+public class GameUI extends JFrame implements PlaygroundListenerI {
 	private static final long serialVersionUID = -4407424276798218633L;
 
 	int[] treasure = { 1, 42, 70, 30, 22, 64 };
@@ -12,11 +12,7 @@ public class GameUI extends JFrame {
 	ControlPanel controlPanel = new ControlPanel();
 	GameBoard board = new GameBoard(9, 380, 380, treasure);
 
-	public static void main(String[] args) {
-		new GameUI();
-	}
-
-	public GameUI() {
+	public GameUI(int N) {
 		super("Maze Game");
 		setSize(800, 600);
 		setResizable(false);
@@ -53,5 +49,17 @@ public class GameUI extends JFrame {
 
 		setVisible(true);
 		setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
+	}
+
+	@Override
+	public void onUpdate(MazeStateMsg msg) {
+		// TODO Auto-generated method stub
+
+	}
+
+	@Override
+	public void onUpdate(PlayersStateMsg msg) {
+		// TODO Auto-generated method stub
+
 	}
 }

@@ -46,14 +46,14 @@ public class GameManager implements ServerSocketListenerI, ConnectionListenerI, 
 		running_ = false;
 		thread_.interrupt();
 		synchronized (this) {
-			if (tracker_ != null)
-				server_.close(tracker_);
-			tracker_ = null;
+			server_.stop();
 			for (Player player : player_list_) {
 				player.stop();
 				player.getConnection().set_listener(null);
 			}
-			server_.stop();
+			if (tracker_ != null)
+				server_.close(tracker_);
+			tracker_ = null;
 		}
 	}
 
@@ -123,6 +123,18 @@ public class GameManager implements ServerSocketListenerI, ConnectionListenerI, 
 			System.out.format("GameManager::onData() unexpected msg_type[%s]\n", msg_type);
 			break;
 		}
+	}
+
+	public void startGUI(int N) {
+		// gui_ = new GameUI(N);
+	}
+
+	public void updateGUI(MazeStateMsg msg) {
+		// gui_.onUpdate(msg);
+	}
+
+	public void updateGUI(PlayersStateMsg msg) {
+		// gui_.onUpdate(msg);
 	}
 
 	public Player getPlayer(String host, int listening_port) {
@@ -272,4 +284,6 @@ public class GameManager implements ServerSocketListenerI, ConnectionListenerI, 
 
 	private RoleManager role_manager_;
 	private ArrayList<Player> player_list_;
+
+	private GameUI gui_;
 }

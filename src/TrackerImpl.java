@@ -4,6 +4,7 @@ import java.util.ArrayList;
 public class TrackerImpl implements ServerSocketListenerI, ConnectionListenerI {
 	public TrackerImpl(int listening_port, int N, int K) {
 		info_ = new InfoMsg(N, K);
+		info_.serialize();
 		server_ = new ConnectionManager(listening_port, this);
 		connections_ = new ArrayList<Connection>();
 	}
@@ -43,6 +44,7 @@ public class TrackerImpl implements ServerSocketListenerI, ConnectionListenerI {
 			InfoMsg msg = new InfoMsg(buffer);
 			if (msg.deserialize()) {
 				info_ = msg;
+				info_.serialize();
 				System.out.format("TrackerImpl::OnMessage() kInfo remote[%s]\n", connection.getRemoteAddress());
 				for (TrackerPeerInfo peer : info_.getPeers()) {
 					System.out.format("    peer host[%s] port[%s]\n", peer.host, peer.listening_port);

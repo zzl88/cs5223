@@ -2,7 +2,7 @@ import javax.swing.*;
 
 public class PlayerInfoPanel extends JPanel {
 	private static final long serialVersionUID = 7279427805788120369L;
-	
+
 	JLabel playerNameLabel = new JLabel();
 	JLabel treasureCollected = new JLabel();
 	JLabel serverTypeLabel = new JLabel();

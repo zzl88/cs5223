@@ -25,7 +25,10 @@ public abstract class Message {
 	}
 
 	public boolean deserialize() {
+		buffer_.rewind();
+
 		try {
+			buffer_.getInt();  // type
 			deserializeImpl();
 			return true;
 		} catch (BufferUnderflowException ex) {
@@ -113,6 +116,7 @@ class InfoMsg extends Message {
 		peer.host = host;
 		peer.listening_port = port;
 		peers_.add(peer);
+		serialize();
 	}
 
 	public void removePeer(String host, int port) {
@@ -120,6 +124,7 @@ class InfoMsg extends Message {
 			if (info.host.equals(host) && info.listening_port == port) {
 				peers_.remove(info);
 				System.out.println("TrackerPeerInfo::removePeer() host[" + host + "] listening_port[" + port + "]");
+				serialize();
 				return;
 			}
 		}
@@ -127,6 +132,7 @@ class InfoMsg extends Message {
 
 	public void clearPeers() {
 		peers_.clear();
+		serialize();
 	}
 
 	@Override
