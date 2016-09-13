@@ -247,8 +247,8 @@ class PrimaryManager extends RoleManager {
 			secondary_.getConnection().write(msg);
 		}
 		if (player != null && player != secondary_) {
-			secondary_.getConnection().write(player_states_);
-			secondary_.getConnection().write(msg);
+			player.getConnection().write(player_states_);
+			player.getConnection().write(msg);
 		}
 		gm_.updateGUI(player_states_);
 		gm_.updateGUI(msg);
