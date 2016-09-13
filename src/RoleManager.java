@@ -80,6 +80,7 @@ class PrimaryManager extends RoleManager {
 		info_.addPeer(gm_.getLocalHost(), gm_.getListeningPort());
 		if (gm_.connectTracker())
 			gm_.getTracker().write(info_);
+		update(null);
 	}
 
 	public void promote(SecondaryManager sm) {
@@ -242,6 +243,10 @@ class PrimaryManager extends RoleManager {
 		player_states_.serialize();
 		MazeStateMsg msg = new MazeStateMsg(playground_);
 		msg.serialize();
+		
+		gm_.updateGUI(player_states_);
+		gm_.updateGUI(msg);
+		
 		if (secondary_ != null) {
 			secondary_.getConnection().write(player_states_);
 			secondary_.getConnection().write(msg);
@@ -250,8 +255,6 @@ class PrimaryManager extends RoleManager {
 			player.getConnection().write(player_states_);
 			player.getConnection().write(msg);
 		}
-		gm_.updateGUI(player_states_);
-		gm_.updateGUI(msg);
 	}
 
 	private PlayerState self_;
@@ -329,13 +332,13 @@ class PlayerManager extends RoleManager {
 		if (player == primary_) {
 			primary_ = null;
 
-      for (int i = 1; i < info_.getPeers().size(); ++i) {
-        TrackerPeerInfo primary = info_.getPeers().get(i);
-        if (join(primary.host, primary.listening_port))
-          return;
-      }
+			for (int i = 1; i < info_.getPeers().size(); ++i) {
+				TrackerPeerInfo primary = info_.getPeers().get(i);
+				if (join(primary.host, primary.listening_port))
+					return;
+			}
 
-      gm_.stop();
+			gm_.stop();
 		}
 	}
 
@@ -367,7 +370,7 @@ class PlayerManager extends RoleManager {
 				primary_.getConnection().write(msg);
 			}
 		}
-    return true;
+		return true;
 	}
 
 	protected Player primary_;
@@ -398,7 +401,8 @@ class SecondaryManager extends PlayerManager {
 
 	public void handle(Player player, JoinMsg msg) {
 		System.out.println("SecondaryManager::handle() JoinMsg");
-		// TODO(x) should handle the join in case other players gets disconnected from primary first
+		// TODO(x) should handle the join in case other players gets
+		// disconnected from primary first
 	}
 
 	public void onDisconnected(Player player) {

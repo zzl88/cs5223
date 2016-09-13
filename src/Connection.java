@@ -85,8 +85,9 @@ public class Connection {
 				if (message_len == 0 || message_len + read_buffer_.position() - 4 > num)
 					break;
 
-				byte[] buffer = new byte[message_len - 4];
-				read_buffer_.get(buffer, 0, message_len - 4);
+				byte[] buffer = new byte[message_len];
+				read_buffer_.position(read_buffer_.position() - 4);
+				read_buffer_.get(buffer, 0, message_len);
 
 				if (listener_ != null)
 					listener_.onData(this, ByteBuffer.wrap(buffer));

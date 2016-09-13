@@ -28,6 +28,7 @@ public abstract class Message {
 		buffer_.rewind();
 
 		try {
+			buffer_.getInt();  // len
 			buffer_.getInt();  // type
 			deserializeImpl();
 			return true;
@@ -237,6 +238,16 @@ class PlayerState {
 		this.host = host;
 		this.listening_port = listening_port;
 	}
+	
+	public PlayerState(PlayerState ps) {
+		x = ps.x;
+		y = ps.y;
+		treasure = ps.treasure;
+		last_seq_num = ps.last_seq_num;
+		id = ps.id;
+		host = ps.host;
+		listening_port = ps.listening_port;
+	}
 
 	public String id;
 	public String host;
@@ -300,6 +311,14 @@ class PlayersStateMsg extends Message {
 			}
 		}
 	}
+	
+	public ArrayList<PlayerState> clone() {
+		ArrayList<PlayerState> arr = new ArrayList<PlayerState>();
+		for (PlayerState ps : players_) {
+			arr.add(new PlayerState(ps));
+		}
+		return arr;
+	}
 
 	@Override
 	protected void serializeImpl() {
@@ -334,6 +353,8 @@ class MazeStateMsg extends Message {
 		playground_ = playground;
 	}
 
+	public Playground getPlayground() { return playground_; }
+	
 	public void setPlayground(Playground playground) {
 		playground_ = playground;
 	}

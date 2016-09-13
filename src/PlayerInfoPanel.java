@@ -12,17 +12,6 @@ public class PlayerInfoPanel extends JPanel {
 		playerNameLabel.setText(playerName);
 		treasureCollected.setText(treasure + " Treasures Collected");
 
-		switch (serverType) {
-		case 1:
-			serverTypeString = "Primary Server";
-			break;
-		case 2:
-			serverTypeString = "Secondary Server";
-			break;
-		default:
-			serverTypeString = "Normal Player";
-		}
-
 		serverTypeLabel.setText(serverTypeString);
 
 		setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));

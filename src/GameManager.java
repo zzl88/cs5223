@@ -44,7 +44,8 @@ public class GameManager implements ServerSocketListenerI, ConnectionListenerI, 
 
 	public void stop() {
 		running_ = false;
-		thread_.interrupt();
+		if (thread_ != null)
+			thread_.interrupt();
 		synchronized (this) {
 			server_.stop();
 			for (Player player : player_list_) {
@@ -109,6 +110,7 @@ public class GameManager implements ServerSocketListenerI, ConnectionListenerI, 
 	@Override
 	public void onData(Connection connection, ByteBuffer buffer) {
 		System.out.println("GameManager::onData()");
+		buffer.getInt();  // len
 		MsgType msg_type = MsgType.values()[buffer.getInt()];
 		switch (msg_type) {
 		case kInfo:
@@ -126,15 +128,15 @@ public class GameManager implements ServerSocketListenerI, ConnectionListenerI, 
 	}
 
 	public void startGUI(int N) {
-		// gui_ = new GameUI(N);
+		gui_ = new GameUI(N);
 	}
 
 	public void updateGUI(MazeStateMsg msg) {
-		// gui_.onUpdate(msg);
+		gui_.onUpdate(msg);
 	}
 
 	public void updateGUI(PlayersStateMsg msg) {
-		// gui_.onUpdate(msg);
+		gui_.onUpdate(msg);
 	}
 
 	public Player getPlayer(String host, int listening_port) {

@@ -1,4 +1,5 @@
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 
 class Node {
 	public Node(int x0, int y0) {
@@ -31,8 +32,12 @@ public class Playground {
 		}
 	}
 
-	public Node[][] getYard() {
-		return yard_;
+	public void clone(ArrayList<Integer> treasures) {
+		for (int y = 0; y < N_; ++y) {
+			for (int x = 0; x < N_; ++x) {
+				treasures.set(y * N_ + x, yard_[y][x].treasure);
+			}
+		}
 	}
 
 	public void initPlayer(PlayerState player) {

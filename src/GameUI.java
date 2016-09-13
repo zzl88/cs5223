@@ -1,40 +1,29 @@
 import javax.swing.*;
 import java.awt.*;
-import java.util.Random;
+import java.util.ArrayList;
 
 public class GameUI extends JFrame implements PlaygroundListenerI {
 	private static final long serialVersionUID = -4407424276798218633L;
 
-	int[] treasure = { 1, 42, 70, 30, 22, 64 };
-
 	GameInfoPanel infoPanel = new GameInfoPanel(3);
-	JPanel playerListPanel = new JPanel();
+	final JPanel playerListPanel = new JPanel();
 	ControlPanel controlPanel = new ControlPanel();
-	GameBoard board = new GameBoard(9, 380, 380, treasure);
+	GameBoard board;
 
 	public GameUI(int N) {
 		super("Maze Game");
-		setSize(800, 600);
+		setSize(420 + 37 * N, 220 + 37 * N);
 		setResizable(false);
+		
+		board = new GameBoard(N, 37 * N, 37 * N);
 
 		infoPanel.setBackground(Color.CYAN);
 		playerListPanel.setBackground(Color.BLUE);
 		controlPanel.setBackground(Color.green);
 
-		infoPanel.setSize(800, 100);
-		playerListPanel.setSize(200, 400);
-		controlPanel.setSize(800, 100);
-
-		for (int i = 0; i < 3; i++) {
-			Random rand = new Random();
-			int n = rand.nextInt(50);
-
-			PlayerInfoPanel playerInfoPanel = new PlayerInfoPanel("Player " + i, n, i);
-			playerInfoPanel.setBackground(Color.yellow);
-			playerInfoPanel.setSize(150, 300);
-
-			playerListPanel.add(playerInfoPanel);
-		}
+		infoPanel.setSize(420 + 37 * N, 100);
+		playerListPanel.setSize(200, 20 + 37 * N);
+		controlPanel.setSize(420 + 37 * N, 100);
 
 		add(infoPanel);
 		add(playerListPanel);
@@ -43,9 +32,9 @@ public class GameUI extends JFrame implements PlaygroundListenerI {
 
 		getContentPane().setLayout(null);
 		infoPanel.setLocation(0, 0);
-		playerListPanel.setLocation(600, 100);
+		playerListPanel.setLocation(220 + 37 * N, 100);
 		board.setLocation(110, 110);
-		controlPanel.setLocation(0, 500);
+		controlPanel.setLocation(0, 120 + 37 * N);
 
 		setVisible(true);
 		setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
@@ -53,13 +42,33 @@ public class GameUI extends JFrame implements PlaygroundListenerI {
 
 	@Override
 	public void onUpdate(MazeStateMsg msg) {
-		// TODO Auto-generated method stub
-
+		SwingUtilities.invokeLater(new Runnable() {
+			public void run() {
+				System.out.println("GameUI::onUpdate(MazeStateMsg)");
+				board.update(msg);
+				board.refresh();
+				revalidate();
+			}
+		});
 	}
 
 	@Override
 	public void onUpdate(PlayersStateMsg msg) {
-		// TODO Auto-generated method stub
+		final ArrayList<PlayerState> players = msg.clone();
+		SwingUtilities.invokeLater(new Runnable() {
+			public void run() {
+				System.out.println("GameUI::onUpdate(PlayerStateMsg)");
+				playerListPanel.removeAll();
+				for (PlayerState ps : players) {
+					PlayerInfoPanel playerInfoPanel = new PlayerInfoPanel("Player <" + ps.id + ">", ps.treasure, 0);
+					playerInfoPanel.setBackground(Color.yellow);
+					playerInfoPanel.setSize(150, 300);
 
+					playerListPanel.add(playerInfoPanel);
+				}
+				board.update(players);
+				// revalidate();
+			}
+		});
 	}
 }

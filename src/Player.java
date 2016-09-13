@@ -54,6 +54,7 @@ public class Player implements ConnectionListenerI, Runnable {
 			try {
 				ByteBuffer buffer = msg_queue_.poll(1000, TimeUnit.MILLISECONDS);
 				if (buffer != null) {
+					buffer.getInt();  // len
 					MsgType msg_type = MsgType.values()[buffer.getInt()];
 					System.out.format("Player::run() msg_type[%s]\n", msg_type);
 					switch (msg_type) {

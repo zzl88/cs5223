@@ -38,6 +38,7 @@ public class TrackerImpl implements ServerSocketListenerI, ConnectionListenerI {
 
 	@Override
 	public void onData(Connection connection, ByteBuffer buffer) {
+		buffer.getInt();  // len
 		MsgType msg_type = MsgType.values()[buffer.getInt()];
 		switch (msg_type) {
 		case kInfo:
