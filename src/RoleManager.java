@@ -329,8 +329,13 @@ class PlayerManager extends RoleManager {
 		if (player == primary_) {
 			primary_ = null;
 
-			TrackerPeerInfo primary = info_.getPeers().get(1);
-			join(primary.host, primary.listening_port);
+      for (int i = 1; i < info_.getPeers().size(); ++i) {
+        TrackerPeerInfo primary = info_.getPeers().get(i);
+        if (join(primary.host, primary.listening_port))
+          return;
+      }
+
+      gm_.stop();
 		}
 	}
 
@@ -349,12 +354,12 @@ class PlayerManager extends RoleManager {
 		}
 	}
 
-	public void join(String host, int port) {
+	public boolean join(String host, int port) {
 		System.out.println("PlayerManager::join()");
 		if (primary_ == null) {
 			primary_ = gm_.connect(host, port);
 			if (primary_ == null) {
-				gm_.stop();
+				return false;
 			} else {
 				JoinMsg msg = new JoinMsg(gm_.getPlayerId(), gm_.getLocalHost(), gm_.getListeningPort(), cur_seq_num_);
 				history_.put(cur_seq_num_, new JoinMsg(msg));
@@ -362,6 +367,7 @@ class PlayerManager extends RoleManager {
 				primary_.getConnection().write(msg);
 			}
 		}
+    return true;
 	}
 
 	protected Player primary_;
