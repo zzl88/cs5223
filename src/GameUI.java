@@ -5,18 +5,19 @@ import java.util.ArrayList;
 public class GameUI extends JFrame implements PlaygroundListenerI {
 	private static final long serialVersionUID = -4407424276798218633L;
 
-	GameInfoPanel infoPanel = new GameInfoPanel(3);
+	GameInfoPanel infoPanel;
 	final JPanel playerListPanel = new JPanel();
 	ControlPanel controlPanel = new ControlPanel();
 	GameBoard board;
 
-	public GameUI(int N) {
+	public GameUI(int N, String player_id) {
 		super("Maze Game");
 		setSize(420 + 37 * N, 220 + 37 * N);
 		setResizable(false);
 		
 		board = new GameBoard(N, 37 * N, 37 * N);
-
+		infoPanel = new GameInfoPanel(player_id);
+		
 		infoPanel.setBackground(Color.CYAN);
 		playerListPanel.setBackground(Color.BLUE);
 		controlPanel.setBackground(Color.green);

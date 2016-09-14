@@ -128,7 +128,7 @@ public class GameManager implements ServerSocketListenerI, ConnectionListenerI, 
 	}
 
 	public void startGUI(int N) {
-		gui_ = new GameUI(N);
+		gui_ = new GameUI(N, getPlayerId());
 	}
 
 	public void updateGUI(MazeStateMsg msg) {
@@ -162,6 +162,9 @@ public class GameManager implements ServerSocketListenerI, ConnectionListenerI, 
 				return false;
 			} else {
 				tracker_.set_listener(this);
+				JoinMsg msg = new JoinMsg(getPlayerId(), getLocalHost(), getListeningPort(), 0);
+				msg.serialize();
+				tracker_.write(msg);
 			}
 		}
 		return true;
@@ -173,6 +176,13 @@ public class GameManager implements ServerSocketListenerI, ConnectionListenerI, 
 			tracker_ = null;
 			System.out.println("PlayerManager::OnMessage() disconnected from Tracker");
 		}
+	}
+	
+	public void reportQuitPlayer(String host, int listening_port) {
+		PeerQuitMsg msg = new PeerQuitMsg(host, listening_port);
+		msg.serialize();
+		if (connectTracker())
+			tracker_.write(msg);
 	}
 
 	public Player connect(String host, int port) {

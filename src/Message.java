@@ -3,7 +3,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 
 enum MsgType {
-	kInfo, kJoin, kPlayerState, kMazeState, kMove
+	kInfo, kPeerQuit, kJoin, kPlayerState, kMazeState, kMove
 }
 
 public abstract class Message {
@@ -80,6 +80,35 @@ class TrackerPeerInfo {
 	}
 }
 
+class PeerQuitMsg extends Message {
+	public PeerQuitMsg(String host, int listening_port) {
+		super(MsgType.kPeerQuit);
+		host_ = host;
+		listening_port_ = listening_port;
+	}
+	
+	public PeerQuitMsg(ByteBuffer buffer) {
+		super(MsgType.kPeerQuit);
+		buffer_ = buffer;
+	}
+	
+	String getHost() { return host_; }
+	int getListeningPort() { return listening_port_; }
+	
+	protected void serializeImpl() {
+		MessageHelper.putString(buffer_, host_);
+		buffer_.putInt(listening_port_);
+	}
+	
+	protected void deserializeImpl() {
+		host_ = MessageHelper.getString(buffer_);
+		listening_port_ = buffer_.getInt();
+	}
+	
+	private String host_;
+	private int listening_port_;
+}
+
 class InfoMsg extends Message {
 	public InfoMsg(int N, int K) {
 		super(MsgType.kInfo);
@@ -106,10 +135,10 @@ class InfoMsg extends Message {
 		return peers_;
 	}
 
-	public void addPeer(String host, int port) {
+	public boolean addPeer(String host, int port) {
 		for (TrackerPeerInfo info : peers_) {
 			if (info.host.equals(host) && info.listening_port == port)
-				return;
+				return false;
 		}
 
 		System.out.println("TrackerPeerInfo::addPeer() host[" + host + "] listening_port[" + port + "]");
@@ -118,6 +147,7 @@ class InfoMsg extends Message {
 		peer.listening_port = port;
 		peers_.add(peer);
 		serialize();
+		return true;
 	}
 
 	public void removePeer(String host, int port) {
@@ -129,6 +159,14 @@ class InfoMsg extends Message {
 				return;
 			}
 		}
+	}
+	
+	public boolean has(String host, int port) {
+		for (TrackerPeerInfo info : peers_) {
+			if (info.host.equals(host) && info.listening_port == port)
+				return true;
+		}
+		return false;
 	}
 
 	public void clearPeers() {
@@ -300,15 +338,39 @@ class PlayersStateMsg extends Message {
 	}
 
 	public void addPlayer(PlayerState player) {
+		for (PlayerState p : players_) {
+			if (p.host.equals(player.host) && p.listening_port == player.listening_port)
+				return;
+		}
+		
 		players_.add(player);
 	}
 
-	public void removePlayer(PlayerState player) {
+	public void removePlayer(String host, int listening_port) {
 		for (PlayerState p : players_) {
-			if (p.host.equals(player.host) && p.listening_port == player.listening_port) {
+			if (p.host.equals(host) && p.listening_port == listening_port) {
 				players_.remove(p);
 				break;
 			}
+		}
+	}
+	
+	public boolean has(String host, int listening_port) {
+		for (PlayerState p : players_) {
+			if (p.host.equals(host) && p.listening_port == listening_port)
+				return true;
+		}
+		return false;
+	}
+	
+	public void consolidate(InfoMsg info) {
+		ArrayList<PlayerState> to_remove_players = new ArrayList<PlayerState>();
+		for (PlayerState ps : players_) {
+			if (!info.has(ps.host, ps.listening_port))
+				to_remove_players.add(ps);
+		}
+		for (PlayerState i : to_remove_players) {
+			players_.remove(i);
 		}
 	}
 	

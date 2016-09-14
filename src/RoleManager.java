@@ -77,23 +77,28 @@ class PrimaryManager extends RoleManager {
 		playground_.initPlayer(self_);
 
 		player_states_.addPlayer(self_);
-		info_.addPeer(gm_.getLocalHost(), gm_.getListeningPort());
-		if (gm_.connectTracker())
-			gm_.getTracker().write(info_);
+		gm_.connectTracker();
 		update(null);
 	}
 
 	public void promote(SecondaryManager sm) {
 		super.promote(sm);
 
+		TrackerPeerInfo primary = info_.getPeers().get(0);
+		gm_.reportQuitPlayer(primary.host, primary.listening_port);
+
+		player_states_.removePlayer(primary.host, primary.listening_port);
+		for (PlayerState state : player_states_.getPlayersState()) {
+			if (!info_.has(state.host, state.listening_port)) {
+				player_states_.removePlayer(state.host, state.listening_port);
+				System.out.format("PrimaryManager::promote(SecondaryManager) quited player[%s]\n", state.id);
+			}
+		}
 		for (PlayerState state : player_states_.getPlayersState()) {
 			playground_.setPlayer(state.x, state.y, state);
 			if (state.host.equals(gm_.getLocalHost()) && state.listening_port == gm_.getListeningPort())
 				self_ = state;
 		}
-
-		if (gm_.connectTracker())
-			gm_.getTracker().write(info_);
 	}
 
 	@Override
@@ -103,7 +108,9 @@ class PrimaryManager extends RoleManager {
 
 	@Override
 	public void handle(InfoMsg info) {
-		System.out.println("PrimaryManager::handle() ignore kInfo");
+		System.out.println("PrimaryManager::handle() kInfo");
+		info_ = info;
+		gm_.broadcast(info_);
 	}
 
 	@Override
@@ -148,7 +155,7 @@ class PrimaryManager extends RoleManager {
 
 	@Override
 	public void onDisconnected(Player player) {
-		player_states_.removePlayer(player.getState());
+		player_states_.removePlayer(player.getState().host, player.getState().listening_port);
 
 		if (player == secondary_) {
 			secondary_ = null;
@@ -167,13 +174,7 @@ class PrimaryManager extends RoleManager {
 
 		playground_.setPlayer(player.getState().x, player.getState().y, null);
 
-		PlayerState state = player.getState();
-		if (state != null) {
-			info_.removePeer(state.host, state.listening_port);
-			gm_.getTracker().write(info_);
-		}
-		gm_.broadcast(info_);
-
+		gm_.reportQuitPlayer(player.getState().host, player.getState().listening_port);
 		update(null);
 	}
 
@@ -195,8 +196,6 @@ class PrimaryManager extends RoleManager {
 			player_states_.addPlayer(state);
 		}
 
-		info_.addPeer(state.host, state.listening_port);
-
 		if (info_.getPeers().size() >= 2) {
 			TrackerPeerInfo secondary = info_.getPeers().get(1);
 			if (secondary.host.equals(state.host) && secondary.listening_port == state.listening_port) {
@@ -205,11 +204,10 @@ class PrimaryManager extends RoleManager {
 			} else {
 				System.out.format("PrimaryManager::onJoined() player joined id[%s]\n", state.id);
 			}
-		} else {
-			System.out.println("PrimaryManager::onJoined() ERR: wrong peer count");
+		} else if (info_.getPeers().size() == 1) {
+			secondary_ = player;
+			System.out.println("PrimaryManager::onJoined() secondary server joined");
 		}
-		gm_.getTracker().write(info_);
-		gm_.broadcast(info_);
 		update(player);
 	}
 
@@ -243,10 +241,10 @@ class PrimaryManager extends RoleManager {
 		player_states_.serialize();
 		MazeStateMsg msg = new MazeStateMsg(playground_);
 		msg.serialize();
-		
+
 		gm_.updateGUI(player_states_);
 		gm_.updateGUI(msg);
-		
+
 		if (secondary_ != null) {
 			secondary_.getConnection().write(player_states_);
 			secondary_.getConnection().write(msg);
@@ -279,29 +277,26 @@ class PlayerManager extends RoleManager {
 		for (TrackerPeerInfo peer : info_.getPeers()) {
 			System.out.format("    peer host[%s] port[%s]\n", peer.host, peer.listening_port);
 		}
-
+		if (player_states_ != null) {
+			player_states_.consolidate(info_);
+		}
+		
 		if (playground_ == null) {
 			playground_ = new Playground(info_.getN(), info_.getK());
 			gm_.startGUI(info_.getN());
 		}
 
 		if (info_.getPeers().isEmpty()) {
-			gm_.promotePrimary(this);
+			System.out.format("PlayerManager::handler() kInfo WRN: empty peer list");
 		} else if (info_.getPeers().size() == 1) {
-			if (gm_.getLocalHost().equals(info_.getPeers().get(0).host)
-					&& gm_.getListeningPort() == info_.getPeers().get(0).listening_port)
-				gm_.promotePrimary(this);
-			else {
-				gm_.promoteSecondary(this);
-			}
+			gm_.promotePrimary(this);
 		} else {
-			gm_.disconnectTracker();
-
 			TrackerPeerInfo secondary = info_.getPeers().get(1);
 			if (gm_.getLocalHost().equals(secondary.host) && gm_.getListeningPort() == secondary.listening_port) {
 				gm_.promoteSecondary(this);
 			} else {
-				join(info_.getPeers().get(0).host, info_.getPeers().get(0).listening_port);
+				if (!connectPrimary())
+					gm_.stop();
 			}
 		}
 	}
@@ -330,14 +325,10 @@ class PlayerManager extends RoleManager {
 	public void onDisconnected(Player player) {
 		player.stop();
 		if (player == primary_) {
+			player_states_.removePlayer(primary_.getState().host, primary_.getState().listening_port);
 			primary_ = null;
-
-			for (int i = 1; i < info_.getPeers().size(); ++i) {
-				TrackerPeerInfo primary = info_.getPeers().get(i);
-				if (join(primary.host, primary.listening_port))
-					return;
-			}
-
+			if (connectPrimary())
+				return;
 			gm_.stop();
 		}
 	}
@@ -357,20 +348,31 @@ class PlayerManager extends RoleManager {
 		}
 	}
 
-	public boolean join(String host, int port) {
-		System.out.println("PlayerManager::join()");
-		if (primary_ == null) {
-			primary_ = gm_.connect(host, port);
+	public boolean connectPrimary() {
+		if (primary_ != null)
+			return true;
+
+		System.out.println("PlayerManager::connectPrimary()");
+		for (TrackerPeerInfo peer : info_.getPeers()) {
+			if (peer.host.equals(gm_.getLocalHost()) && peer.listening_port == gm_.getListeningPort()) {
+				gm_.promotePrimary(this);
+				return true;
+			}
+			primary_ = gm_.connect(peer.host, peer.listening_port);
 			if (primary_ == null) {
-				return false;
+				gm_.reportQuitPlayer(peer.host, peer.listening_port);
 			} else {
+				gm_.disconnectTracker();
+
 				JoinMsg msg = new JoinMsg(gm_.getPlayerId(), gm_.getLocalHost(), gm_.getListeningPort(), cur_seq_num_);
 				history_.put(cur_seq_num_, new JoinMsg(msg));
 				msg.serialize();
 				primary_.getConnection().write(msg);
+				return true;
 			}
 		}
-		return true;
+
+		return false;
 	}
 
 	protected Player primary_;
@@ -386,7 +388,7 @@ class SecondaryManager extends PlayerManager {
 		primary_ = pm.primary_;
 
 		gm_.disconnectTracker();
-		join(info_.getPeers().get(0).host, info_.getPeers().get(0).listening_port);
+		connectPrimary();
 	}
 
 	public void handle(InfoMsg info) {
@@ -396,6 +398,10 @@ class SecondaryManager extends PlayerManager {
 		System.out.format("  N[%s] K[%s]\n", info_.getN(), info_.getK());
 		for (TrackerPeerInfo peer : info_.getPeers()) {
 			System.out.format("    peer host[%s] port[%s]\n", peer.host, peer.listening_port);
+		}
+		
+		if (player_states_ != null) {
+			player_states_.consolidate(info_);
 		}
 	}
 
@@ -408,9 +414,6 @@ class SecondaryManager extends PlayerManager {
 	public void onDisconnected(Player player) {
 		player.stop();
 		if (player == primary_) {
-			TrackerPeerInfo primary = info_.getPeers().get(0);
-			info_.removePeer(primary.host, primary.listening_port);
-			player_states_.removePlayer(player.getState());
 			gm_.promotePrimary(this);
 			primary_ = null;
 		}
