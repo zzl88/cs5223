@@ -99,6 +99,8 @@ class PrimaryManager extends RoleManager {
 			if (state.host.equals(gm_.getLocalHost()) && state.listening_port == gm_.getListeningPort())
 				self_ = state;
 		}
+		
+		update(null);
 	}
 
 	@Override
@@ -160,14 +162,15 @@ class PrimaryManager extends RoleManager {
 		if (player == secondary_) {
 			secondary_ = null;
 			System.out.println("PrimaryManager::onDisconnected() secondary server down");
-			if (info_.getPeers().size() >= 3) {
-				TrackerPeerInfo secondary = info_.getPeers().get(2);
+			for (int i = 2; i < info_.getPeers().size(); ++i) {
+				TrackerPeerInfo secondary = info_.getPeers().get(i);
 				Player player0 = gm_.getPlayer(secondary.host, secondary.listening_port);
 				if (player0 != null) {
 					secondary_ = player0;
 					System.out.format(
 							"PrimaryManager::onDisconnected() nominate new secondary server host[%s] port[%s]\n",
 							secondary.host, secondary.listening_port);
+					break;
 				}
 			}
 		}
@@ -361,6 +364,7 @@ class PlayerManager extends RoleManager {
 			primary_ = gm_.connect(peer.host, peer.listening_port);
 			if (primary_ == null) {
 				gm_.reportQuitPlayer(peer.host, peer.listening_port);
+				if (player_states_ != null) player_states_.removePlayer(peer.host, peer.listening_port);
 			} else {
 				gm_.disconnectTracker();
 

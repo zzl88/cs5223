@@ -64,7 +64,7 @@ public class GameManager implements ServerSocketListenerI, ConnectionListenerI, 
 		while (running_) {
 			try {
 				while (!br.ready()) {
-					Thread.sleep(200);
+					Thread.sleep(10);
 				}
 				String line = br.readLine();
 				if (line.isEmpty())
@@ -142,7 +142,7 @@ public class GameManager implements ServerSocketListenerI, ConnectionListenerI, 
 	public Player getPlayer(String host, int listening_port) {
 		synchronized (this) {
 			for (Player player : player_list_) {
-				if (player.getState().host == host && player.getState().listening_port == listening_port) {
+				if (player.getState().host.equals(host) && player.getState().listening_port == listening_port) {
 					return player;
 				}
 			}
@@ -217,8 +217,8 @@ public class GameManager implements ServerSocketListenerI, ConnectionListenerI, 
 	public void promoteSecondary(PlayerManager pm) {
 		System.out.println("GameManager::promoteSecondary() promote to Secondary server");
 		SecondaryManager new_rm = new SecondaryManager(this);
-		new_rm.promote(pm);
 		role_manager_ = new_rm;
+		new_rm.promote(pm);
 	}
 
 	public void onDisconnected(Player player) {
