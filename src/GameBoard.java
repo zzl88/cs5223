@@ -30,7 +30,7 @@ public class GameBoard extends JPanel {
 	public void update(MazeStateMsg msg) {
 		msg.getPlayground().clone(treasures_);
 	}
-	
+
 	public void refresh() {
 		for (int x = 0; x < N_ * N_; ++x) {
 			JLabel l = grid_[x];

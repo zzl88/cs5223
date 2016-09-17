@@ -5,6 +5,8 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 
 public class GameManager implements ServerSocketListenerI, ConnectionListenerI, Runnable {
+	private static Logger logger = new Logger("GameManager");
+
 	public GameManager(String tracker_host, int tracker_port, String player_id) {
 		tracker_host_ = tracker_host;
 		tracker_port_ = tracker_port;
@@ -33,7 +35,7 @@ public class GameManager implements ServerSocketListenerI, ConnectionListenerI, 
 			return false;
 
 		if (connectTracker()) {
-			System.out.println("GameManager::start() connected tracker");
+			logger.log("start", "connected tracker");
 			running_ = true;
 			thread_ = new Thread(this);
 			thread_.start();
@@ -59,7 +61,7 @@ public class GameManager implements ServerSocketListenerI, ConnectionListenerI, 
 	}
 
 	public void run() {
-		System.out.println("GameManager::run() started");
+		logger.log("run", "started");
 		BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
 		while (running_) {
 			try {
@@ -71,7 +73,7 @@ public class GameManager implements ServerSocketListenerI, ConnectionListenerI, 
 					continue;
 
 				char direction = line.charAt(0);
-				System.out.format("move direction[%s]\n", direction);
+				logger.log("run", String.format("move direction[%s]", direction));
 				synchronized (this) {
 					role_manager_.move(direction);
 				}
@@ -86,7 +88,7 @@ public class GameManager implements ServerSocketListenerI, ConnectionListenerI, 
 			br.close();
 		} catch (IOException e) {
 		}
-		System.out.println("GameManager::run() stopped");
+		logger.log("run", "stopped");
 	}
 
 	@Override
@@ -109,8 +111,8 @@ public class GameManager implements ServerSocketListenerI, ConnectionListenerI, 
 
 	@Override
 	public void onData(Connection connection, ByteBuffer buffer) {
-		System.out.println("GameManager::onData()");
-		buffer.getInt();  // len
+		logger.log("onData", "");
+		buffer.getInt(); // len
 		MsgType msg_type = MsgType.values()[buffer.getInt()];
 		switch (msg_type) {
 		case kInfo:
@@ -122,7 +124,7 @@ public class GameManager implements ServerSocketListenerI, ConnectionListenerI, 
 			}
 			break;
 		default:
-			System.out.format("GameManager::onData() unexpected msg_type[%s]\n", msg_type);
+			logger.log("onData", String.format("unexpected msg_type[%s]", msg_type));
 			break;
 		}
 	}
@@ -174,10 +176,10 @@ public class GameManager implements ServerSocketListenerI, ConnectionListenerI, 
 		if (tracker_ != null) {
 			server_.close(tracker_);
 			tracker_ = null;
-			System.out.println("PlayerManager::OnMessage() disconnected from Tracker");
+			logger.log("disconnectTracker", "");
 		}
 	}
-	
+
 	public void reportQuitPlayer(String host, int listening_port) {
 		PeerQuitMsg msg = new PeerQuitMsg(host, listening_port);
 		msg.serialize();
@@ -201,21 +203,21 @@ public class GameManager implements ServerSocketListenerI, ConnectionListenerI, 
 	}
 
 	public void promotePrimary(PlayerManager pm) {
-		System.out.println("GameManager::promotePrimary() promote to Primary server 1");
+		logger.log("promotePrimary", "from normal player");
 		PrimaryManager new_rm = new PrimaryManager(this);
 		new_rm.promote(pm);
 		role_manager_ = new_rm;
 	}
 
 	public void promotePrimary(SecondaryManager sm) {
-		System.out.println("GameManager::promotePrimary() promote to Primary sever 2");
+		logger.log("promotePrimary", "from secondary server");
 		PrimaryManager new_rm = new PrimaryManager(this);
 		new_rm.promote(sm);
 		role_manager_ = new_rm;
 	}
 
 	public void promoteSecondary(PlayerManager pm) {
-		System.out.println("GameManager::promoteSecondary() promote to Secondary server");
+		logger.log("promoteSecondary", "");
 		SecondaryManager new_rm = new SecondaryManager(this);
 		role_manager_ = new_rm;
 		new_rm.promote(pm);

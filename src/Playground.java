@@ -16,6 +16,8 @@ class Node {
 }
 
 public class Playground {
+	private static Logger logger = new Logger("Playground");
+
 	public Playground(int N, int K) {
 		N_ = N;
 		K_ = K;
@@ -47,7 +49,7 @@ public class Playground {
 			int y = j / N_;
 			if (yard_[y][x].player == null) {
 				enter(player, yard_[y][x]);
-				System.out.format("Playground::initPlayer() %s\n", player);
+				logger.log("initPlayer", player.toString());
 				break;
 			}
 		}
@@ -55,66 +57,66 @@ public class Playground {
 
 	public void setPlayer(int x, int y, PlayerState player) {
 		yard_[y][x].player = player;
-		System.out.format("Playground::setPlayer() x[%s] y[%s] %s\n", x, y, player);
+		logger.log("setPlayer", String.format("x[%s] y[%s] %s", x, y, player));
 	}
 
 	public boolean moveWest(PlayerState player) {
 		initPlayer(player);
 		if (player.x == 0) {
-			System.out.format("Playground::moveWest() invalid move(<0) player[%s]\n", player.id);
+			logger.log("moveWest", String.format("invalid move(<0) player[%s]", player.id));
 			return false;
 		}
 		if (yard_[player.y][player.x - 1].player != null) {
-			System.out.format("Playground::moveWest() invalid move(O) player[%s]\n", player.id);
+			logger.log("moveWest", String.format("invalid move(O) player[%s]", player.id));
 			return false;
 		}
 		enter(player, yard_[player.y][player.x - 1]);
-		System.out.format("Playground::moveWest() %s\n", player);
+		logger.log("moveWest", player.toString());
 		return true;
 	}
 
 	public boolean moveEast(PlayerState player) {
 		initPlayer(player);
 		if (player.x >= N_ - 1) {
-			System.out.format("Playground::moveEast() invalid move(>N) player[%s]\n", player.id);
+			logger.log("moveEast", String.format("invalid move(>N) player[%s]", player.id));
 			return false;
 		}
 		if (yard_[player.y][player.x + 1].player != null) {
-			System.out.format("Playground::moveEast() invalid move(O) player[%s]\n", player.id);
+			logger.log("moveEast", String.format("invalid move(O) player[%s]", player.id));
 			return false;
 		}
 		enter(player, yard_[player.y][player.x + 1]);
-		System.out.format("Playground::moveEast() %s\n", player);
+		logger.log("moveEast", player.toString());
 		return true;
 	}
 
 	public boolean moveNorth(PlayerState player) {
 		initPlayer(player);
 		if (player.y == 0) {
-			System.out.format("Playground::moveNorth() invalid move(<0) player[%s]\n", player.id);
+			logger.log("moveNorth", String.format("invalid move(<0) player[%s]", player.id));
 			return false;
 		}
 		if (yard_[player.y - 1][player.x].player != null) {
-			System.out.format("Playground::moveNorth() invalid move(O) player[%s]\n", player.id);
+			logger.log("moveNorth", String.format("invalid move(O) player[%s]", player.id));
 			return false;
 		}
 		enter(player, yard_[player.y - 1][player.x]);
-		System.out.format("Playground::moveNorth() %s\n", player);
+		logger.log("moveNorth", player.toString());
 		return true;
 	}
 
 	public boolean moveSouth(PlayerState player) {
 		initPlayer(player);
 		if (player.y >= N_ - 1) {
-			System.out.format("Playground::moveSouth() invalid move(>N) player[%s]\n", player.id);
+			logger.log("moveSouth", String.format("invalid move(>N) player[%s]", player.id));
 			return false;
 		}
 		if (yard_[player.y + 1][player.x].player != null) {
-			System.out.format("Playground::moveSouth() invalid move(O) player[%s]\n", player.id);
+			logger.log("moveSouth", String.format("invalid move(O) player[%s]", player.id));
 			return false;
 		}
 		enter(player, yard_[player.y + 1][player.x]);
-		System.out.format("Playground::moveSouth() %s\n", player);
+		logger.log("moveSouth", player.toString());
 		return true;
 	}
 

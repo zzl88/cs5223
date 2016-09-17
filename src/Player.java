@@ -5,6 +5,8 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 public class Player implements ConnectionListenerI, Runnable {
+	private static Logger logger = new Logger("Player");
+
 	public Player(Connection connection, GameManager gm) {
 		connection_ = connection;
 		gm_ = gm;
@@ -39,7 +41,7 @@ public class Player implements ConnectionListenerI, Runnable {
 
 	@Override
 	public void onData(Connection connection, ByteBuffer buffer) {
-		System.out.println("Player::onData()");
+		logger.log("onData", "");
 		try {
 			msg_queue_.put(buffer);
 		} catch (InterruptedException e) {
@@ -49,14 +51,14 @@ public class Player implements ConnectionListenerI, Runnable {
 
 	@Override
 	public void run() {
-		System.out.println("Player::run() started");
+		logger.log("run", "started");
 		while (running_) {
 			try {
 				ByteBuffer buffer = msg_queue_.poll(1000, TimeUnit.MILLISECONDS);
 				if (buffer != null) {
-					buffer.getInt();  // len
+					buffer.getInt(); // len
 					MsgType msg_type = MsgType.values()[buffer.getInt()];
-					System.out.format("Player::run() msg_type[%s]\n", msg_type);
+					logger.log("run", String.format("msg_type[%s]", msg_type));
 					switch (msg_type) {
 					case kInfo:
 						gm_.handle(this, new InfoMsg(buffer));
@@ -74,7 +76,7 @@ public class Player implements ConnectionListenerI, Runnable {
 						gm_.handle(this, new MoveMsg(buffer));
 						break;
 					default:
-						System.out.format("Player::onData() unhandled msg_type[%s]\n", msg_type);
+						logger.log("run", String.format("unhandled msg_type[%s]", msg_type));
 						break;
 					}
 				}
@@ -82,7 +84,7 @@ public class Player implements ConnectionListenerI, Runnable {
 				e.printStackTrace();
 			}
 		}
-		System.out.println("Player::run() stopped");
+		logger.log("run", "stopped");
 	}
 
 	public void setState(PlayerState state) {

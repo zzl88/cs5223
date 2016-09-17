@@ -14,10 +14,10 @@ public class GameUI extends JFrame implements PlaygroundListenerI {
 		super("Maze Game");
 		setSize(420 + 37 * N, 220 + 37 * N);
 		setResizable(false);
-		
+
 		board = new GameBoard(N, 37 * N, 37 * N);
 		infoPanel = new GameInfoPanel(player_id);
-		
+
 		infoPanel.setBackground(Color.CYAN);
 		playerListPanel.setBackground(Color.BLUE);
 		controlPanel.setBackground(Color.green);

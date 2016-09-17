@@ -28,6 +28,8 @@ class SelectorCmd {
 }
 
 public class ConnectionManager implements Runnable {
+	private static Logger logger = new Logger("ConnectionManager");
+
 	public ConnectionManager(int port, ServerSocketListenerI listener) {
 		listening_port_ = port;
 		listener_ = listener;
@@ -53,8 +55,7 @@ public class ConnectionManager implements Runnable {
 			InetSocketAddress address = (InetSocketAddress) socket.getLocalAddress();
 			local_host_ = InetAddress.getLocalHost().getHostAddress();
 			listening_port_ = address.getPort();
-			System.out.format("ConnectionManager::start() local_host[%s] listening_port[%s]\n", local_host_,
-					listening_port_);
+			logger.log("start", String.format("local_host[%s] listening_port[%s]", local_host_, listening_port_));
 
 			socket.register(selector_, SelectionKey.OP_ACCEPT);
 
@@ -79,12 +80,12 @@ public class ConnectionManager implements Runnable {
 	}
 
 	public Connection connect(String remote_host, int remote_port) {
-		System.out.format("ConnectionManager::connect() connecting to remote[%s:%s]\n", remote_host, remote_port);
+		logger.log("connect", String.format("connecting to remote[%s:%s]", remote_host, remote_port));
 		try {
 			SocketChannel socket = SocketChannel.open(new InetSocketAddress(remote_host, remote_port));
 			socket.configureBlocking(false);
-			System.out.format("ConnectionManager::connect() connected local[%s] remote[%s]\n", socket.getLocalAddress(),
-					socket.getRemoteAddress());
+			logger.log("connect", String.format("connected local[%s] remote[%s]", socket.getLocalAddress(),
+					socket.getRemoteAddress()));
 
 			Connection connection = new Connection(socket);
 			synchronized (selector_cmds_) {
@@ -94,8 +95,7 @@ public class ConnectionManager implements Runnable {
 			return connection;
 		} catch (IOException e) {
 			// e.printStackTrace();
-			System.out.format("ConnectionManager::connect() failed to connect remote[%s:%s]\n", remote_host,
-					remote_port);
+			logger.log("connect", String.format("failed to connect remote[%s:%s]", remote_host, remote_port));
 		}
 		return null;
 	}
@@ -108,7 +108,7 @@ public class ConnectionManager implements Runnable {
 	}
 
 	public void run() {
-		System.out.println("ConnectionManager::run() started");
+		logger.log("run", "ConnectionManager::run() started");
 		while (running_) {
 			try {
 				selector_.select();
@@ -123,7 +123,7 @@ public class ConnectionManager implements Runnable {
 					} else if (key.isReadable()) {
 						read(key);
 					} else {
-						System.out.println("ConnectionManager::run() unexpected " + key);
+						logger.log("run", "unexpected " + key);
 					}
 				}
 			}
@@ -136,7 +136,7 @@ public class ConnectionManager implements Runnable {
 					case kAdd:
 						try {
 							SelectionKey conn_key = socket.register(selector_, SelectionKey.OP_READ);
-							System.out.println("ConnectionManager::run() registered");
+							logger.log("run", "registered");
 							conn_key.attach(cmd.connection);
 						} catch (ClosedChannelException e) {
 							e.printStackTrace();
@@ -148,7 +148,7 @@ public class ConnectionManager implements Runnable {
 							key.attach(null);
 							key.cancel();
 							cmd.connection.getSocket().close();
-							System.out.println("ConnectionManager::run() unregistered");
+							logger.log("run", "unregistered");
 						} catch (IOException e) {
 							e.printStackTrace();
 						}
@@ -164,7 +164,7 @@ public class ConnectionManager implements Runnable {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-		System.out.println("ConnectionManager::run() stopped");
+		logger.log("run", "stopped");
 	}
 
 	private void read(SelectionKey key) {
@@ -179,7 +179,7 @@ public class ConnectionManager implements Runnable {
 			ServerSocketChannel server_socket = (ServerSocketChannel) key.channel();
 			SocketChannel client_socket = server_socket.accept();
 			client_socket.configureBlocking(false);
-			System.out.format("ConnectionManager::accept() accepted address[%s]\n", client_socket.getRemoteAddress());
+			logger.log("accept", String.format("accepted address[%s]", client_socket.getRemoteAddress()));
 
 			Connection connection = new Connection(client_socket);
 			SelectionKey client_key = client_socket.register(selector_, SelectionKey.OP_READ);

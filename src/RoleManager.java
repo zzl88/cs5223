@@ -63,6 +63,8 @@ public abstract class RoleManager {
 }
 
 class PrimaryManager extends RoleManager {
+	private static Logger logger = new Logger("PrimaryManager");
+
 	public PrimaryManager(GameManager gm) {
 		super(gm);
 	}
@@ -91,7 +93,7 @@ class PrimaryManager extends RoleManager {
 		for (PlayerState state : player_states_.getPlayersState()) {
 			if (!info_.has(state.host, state.listening_port)) {
 				player_states_.removePlayer(state.host, state.listening_port);
-				System.out.format("PrimaryManager::promote(SecondaryManager) quited player[%s]\n", state.id);
+				logger.log("promote", String.format("quited player[%s]", state.id));
 			}
 		}
 		for (PlayerState state : player_states_.getPlayersState()) {
@@ -99,7 +101,7 @@ class PrimaryManager extends RoleManager {
 			if (state.host.equals(gm_.getLocalHost()) && state.listening_port == gm_.getListeningPort())
 				self_ = state;
 		}
-		
+
 		update(null);
 	}
 
@@ -110,25 +112,25 @@ class PrimaryManager extends RoleManager {
 
 	@Override
 	public void handle(InfoMsg info) {
-		System.out.println("PrimaryManager::handle() kInfo");
+		logger.log("handle", "InfoMsg");
 		info_ = info;
 		gm_.broadcast(info_);
 	}
 
 	@Override
 	public void handle(Player player, PlayersStateMsg state) {
-		System.out.println("PrimaryManager::handle() unexpected PlayersState");
+		logger.log("handle", "unexpected PlayersState");
 	}
 
 	@Override
 	public void handle(MazeStateMsg msg) {
-		System.out.println("PrimaryManager::handle() unexpected MazeStateMsg");
+		logger.log("handle", "unexpected MazeStateMsg");
 	}
 
 	@Override
 	public void handle(Player player, MoveMsg msg) {
-		System.out.format("PrimaryManager::handle() MoveMsg player[%s] direction[%s]\n", player.getState().id,
-				msg.getDirection());
+		logger.log("handle",
+				String.format("MoveMsg player[%s] direction[%s]", player.getState().id, msg.getDirection()));
 		switch (msg.getDirection()) {
 		case '1':
 			playground_.moveWest(player.getState());
@@ -161,15 +163,14 @@ class PrimaryManager extends RoleManager {
 
 		if (player == secondary_) {
 			secondary_ = null;
-			System.out.println("PrimaryManager::onDisconnected() secondary server down");
+			logger.log("onDisconnected", "secondary server down");
 			for (int i = 2; i < info_.getPeers().size(); ++i) {
 				TrackerPeerInfo secondary = info_.getPeers().get(i);
 				Player player0 = gm_.getPlayer(secondary.host, secondary.listening_port);
 				if (player0 != null) {
 					secondary_ = player0;
-					System.out.format(
-							"PrimaryManager::onDisconnected() nominate new secondary server host[%s] port[%s]\n",
-							secondary.host, secondary.listening_port);
+					logger.log("onDisconnected", String.format("nominate new secondary server host[%s] port[%s]",
+							secondary.host, secondary.listening_port));
 					break;
 				}
 			}
@@ -188,7 +189,7 @@ class PrimaryManager extends RoleManager {
 		for (PlayerState p : player_states_.getPlayersState()) {
 			if (p.host.equals(state.host) && p.listening_port == state.listening_port) {
 				player.setState(p);
-				System.out.format("PrimaryManager::onJoined() update %s", p);
+				logger.log("handle", String.format("JoinMsg update %s", p));
 				break;
 			}
 		}
@@ -203,13 +204,13 @@ class PrimaryManager extends RoleManager {
 			TrackerPeerInfo secondary = info_.getPeers().get(1);
 			if (secondary.host.equals(state.host) && secondary.listening_port == state.listening_port) {
 				secondary_ = player;
-				System.out.println("PrimaryManager::onJoined() secondary server joined");
+				logger.log("handle", "JoinMsg secondary server joined");
 			} else {
-				System.out.format("PrimaryManager::onJoined() player joined id[%s]\n", state.id);
+				logger.log("handle", String.format("JoinMsg player joined id[%s]", state.id));
 			}
 		} else if (info_.getPeers().size() == 1) {
 			secondary_ = player;
-			System.out.println("PrimaryManager::onJoined() secondary server joined");
+			logger.log("handle", "JoinMsg secondary server joined");
 		}
 		update(player);
 	}
@@ -263,6 +264,8 @@ class PrimaryManager extends RoleManager {
 }
 
 class PlayerManager extends RoleManager {
+	private static Logger logger = new Logger("PlayerManager");
+
 	public PlayerManager(GameManager gm) {
 		super(gm);
 	}
@@ -273,24 +276,24 @@ class PlayerManager extends RoleManager {
 
 	@Override
 	public void handle(InfoMsg info) {
-		System.out.println("PlayerManager::handle() kInfo");
+		logger.log("handle", "InfoMsg");
 
 		info_ = info;
-		System.out.format("  N[%s] K[%s]\n", info_.getN(), info_.getK());
+		logger.log("handle", String.format("  N[%s] K[%s]", info_.getN(), info_.getK()));
 		for (TrackerPeerInfo peer : info_.getPeers()) {
-			System.out.format("    peer host[%s] port[%s]\n", peer.host, peer.listening_port);
+			logger.log("handle", String.format("    peer host[%s] port[%s]", peer.host, peer.listening_port));
 		}
 		if (player_states_ != null) {
 			player_states_.consolidate(info_);
 		}
-		
+
 		if (playground_ == null) {
 			playground_ = new Playground(info_.getN(), info_.getK());
 			gm_.startGUI(info_.getN());
 		}
 
 		if (info_.getPeers().isEmpty()) {
-			System.out.format("PlayerManager::handler() kInfo WRN: empty peer list");
+			logger.log("handle", "WRN: empty peer list");
 		} else if (info_.getPeers().size() == 1) {
 			gm_.promotePrimary(this);
 		} else {
@@ -306,14 +309,14 @@ class PlayerManager extends RoleManager {
 
 	@Override
 	public void handle(Player player, PlayersStateMsg msg) {
-		System.out.println("PlayerManager::handle() kPlayerState");
+		logger.log("handle", "PlayersStateMsg");
 		player_states_ = msg;
 		gm_.updateGUI(msg);
 	}
 
 	@Override
 	public void handle(MazeStateMsg msg) {
-		System.out.println("PlayerManager::handle() kMazeState");
+		logger.log("handle", "MazeStateMsg");
 		msg.setPlayground(playground_);
 		msg.deserialize();
 		gm_.updateGUI(msg);
@@ -321,7 +324,7 @@ class PlayerManager extends RoleManager {
 
 	@Override
 	public void handle(Player player, MoveMsg msg) {
-		System.out.println("PlayerManager::handle() unexpected kMove");
+		logger.log("handle", "unexpected MoveMsg");
 	}
 
 	@Override
@@ -338,7 +341,7 @@ class PlayerManager extends RoleManager {
 
 	@Override
 	public void handle(Player player, JoinMsg msg) {
-		System.out.println("PlayerManager::handle() JoinMsg WRN: unexpected");
+		logger.log("handle", "unexpected JoinMsg");
 	}
 
 	@Override
@@ -355,7 +358,7 @@ class PlayerManager extends RoleManager {
 		if (primary_ != null)
 			return true;
 
-		System.out.println("PlayerManager::connectPrimary()");
+		logger.log("connectPrimary", "");
 		for (TrackerPeerInfo peer : info_.getPeers()) {
 			if (peer.host.equals(gm_.getLocalHost()) && peer.listening_port == gm_.getListeningPort()) {
 				gm_.promotePrimary(this);
@@ -364,7 +367,8 @@ class PlayerManager extends RoleManager {
 			primary_ = gm_.connect(peer.host, peer.listening_port);
 			if (primary_ == null) {
 				gm_.reportQuitPlayer(peer.host, peer.listening_port);
-				if (player_states_ != null) player_states_.removePlayer(peer.host, peer.listening_port);
+				if (player_states_ != null)
+					player_states_.removePlayer(peer.host, peer.listening_port);
 			} else {
 				gm_.disconnectTracker();
 
@@ -383,6 +387,8 @@ class PlayerManager extends RoleManager {
 }
 
 class SecondaryManager extends PlayerManager {
+	private static Logger logger = new Logger("SecondaryManager");
+
 	public SecondaryManager(GameManager gm) {
 		super(gm);
 	}
@@ -396,21 +402,21 @@ class SecondaryManager extends PlayerManager {
 	}
 
 	public void handle(InfoMsg info) {
-		System.out.println("SecondaryManager::handle() kInfo");
+		logger.log("handle", "InfoMsg");
 
 		info_ = info;
-		System.out.format("  N[%s] K[%s]\n", info_.getN(), info_.getK());
+		logger.log("handle", String.format("  N[%s] K[%s]", info_.getN(), info_.getK()));
 		for (TrackerPeerInfo peer : info_.getPeers()) {
-			System.out.format("    peer host[%s] port[%s]\n", peer.host, peer.listening_port);
+			logger.log("handle", String.format("    peer host[%s] port[%s]", peer.host, peer.listening_port));
 		}
-		
+
 		if (player_states_ != null) {
 			player_states_.consolidate(info_);
 		}
 	}
 
 	public void handle(Player player, JoinMsg msg) {
-		System.out.println("SecondaryManager::handle() JoinMsg");
+		logger.log("handle", "JoinMsg");
 		// TODO(x) should handle the join in case other players gets
 		// disconnected from primary first
 	}

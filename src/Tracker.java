@@ -15,7 +15,7 @@ public class Tracker {
 
 		Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
 			public void run() {
-				System.out.println("Tracker::main() !Interrupted!");
+				System.out.println("main() !Interrupted!");
 				tracker.stop();
 			}
 		}));

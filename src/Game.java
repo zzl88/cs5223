@@ -15,7 +15,7 @@ public class Game {
 
 		Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
 			public void run() {
-				System.out.println("Game::main() !Interrupted!");
+				System.out.println("main() !Interrupted!");
 				manager.stop();
 			}
 		}));

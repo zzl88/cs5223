@@ -28,8 +28,8 @@ public abstract class Message {
 		buffer_.rewind();
 
 		try {
-			buffer_.getInt();  // len
-			buffer_.getInt();  // type
+			buffer_.getInt(); // len
+			buffer_.getInt(); // type
 			deserializeImpl();
 			return true;
 		} catch (BufferUnderflowException ex) {
@@ -86,30 +86,37 @@ class PeerQuitMsg extends Message {
 		host_ = host;
 		listening_port_ = listening_port;
 	}
-	
+
 	public PeerQuitMsg(ByteBuffer buffer) {
 		super(MsgType.kPeerQuit);
 		buffer_ = buffer;
 	}
-	
-	String getHost() { return host_; }
-	int getListeningPort() { return listening_port_; }
-	
+
+	String getHost() {
+		return host_;
+	}
+
+	int getListeningPort() {
+		return listening_port_;
+	}
+
 	protected void serializeImpl() {
 		MessageHelper.putString(buffer_, host_);
 		buffer_.putInt(listening_port_);
 	}
-	
+
 	protected void deserializeImpl() {
 		host_ = MessageHelper.getString(buffer_);
 		listening_port_ = buffer_.getInt();
 	}
-	
+
 	private String host_;
 	private int listening_port_;
 }
 
 class InfoMsg extends Message {
+	private static Logger logger = new Logger("InfoMsg");
+
 	public InfoMsg(int N, int K) {
 		super(MsgType.kInfo);
 		N_ = N;
@@ -141,7 +148,7 @@ class InfoMsg extends Message {
 				return false;
 		}
 
-		System.out.println("TrackerPeerInfo::addPeer() host[" + host + "] listening_port[" + port + "]");
+		logger.log("addPeer", "host[" + host + "] listening_port[" + port + "]");
 		TrackerPeerInfo peer = new TrackerPeerInfo();
 		peer.host = host;
 		peer.listening_port = port;
@@ -154,13 +161,13 @@ class InfoMsg extends Message {
 		for (TrackerPeerInfo info : peers_) {
 			if (info.host.equals(host) && info.listening_port == port) {
 				peers_.remove(info);
-				System.out.println("TrackerPeerInfo::removePeer() host[" + host + "] listening_port[" + port + "]");
+				logger.log("removePeer", "host[" + host + "] listening_port[" + port + "]");
 				serialize();
 				return;
 			}
 		}
 	}
-	
+
 	public boolean has(String host, int port) {
 		for (TrackerPeerInfo info : peers_) {
 			if (info.host.equals(host) && info.listening_port == port)
@@ -276,7 +283,7 @@ class PlayerState {
 		this.host = host;
 		this.listening_port = listening_port;
 	}
-	
+
 	public PlayerState(PlayerState ps) {
 		x = ps.x;
 		y = ps.y;
@@ -342,7 +349,7 @@ class PlayersStateMsg extends Message {
 			if (p.host.equals(player.host) && p.listening_port == player.listening_port)
 				return;
 		}
-		
+
 		players_.add(player);
 	}
 
@@ -354,7 +361,7 @@ class PlayersStateMsg extends Message {
 			}
 		}
 	}
-	
+
 	public boolean has(String host, int listening_port) {
 		for (PlayerState p : players_) {
 			if (p.host.equals(host) && p.listening_port == listening_port)
@@ -362,7 +369,7 @@ class PlayersStateMsg extends Message {
 		}
 		return false;
 	}
-	
+
 	public void consolidate(InfoMsg info) {
 		ArrayList<PlayerState> to_remove_players = new ArrayList<PlayerState>();
 		for (PlayerState ps : players_) {
@@ -373,7 +380,7 @@ class PlayersStateMsg extends Message {
 			players_.remove(i);
 		}
 	}
-	
+
 	public ArrayList<PlayerState> clone() {
 		ArrayList<PlayerState> arr = new ArrayList<PlayerState>();
 		for (PlayerState ps : players_) {
@@ -390,6 +397,7 @@ class PlayersStateMsg extends Message {
 		}
 	}
 
+	private static Logger logger = new Logger("PlayersStateMsg");
 	@Override
 	protected void deserializeImpl() {
 		int size = buffer_.getInt();
@@ -397,7 +405,7 @@ class PlayersStateMsg extends Message {
 			PlayerState p = new PlayerState();
 			p.deserialize(buffer_);
 			players_.add(p);
-			System.out.format("  %s\n", p);
+			logger.log("deserializeImpl", p.toString());
 		}
 	}
 
@@ -415,8 +423,10 @@ class MazeStateMsg extends Message {
 		playground_ = playground;
 	}
 
-	public Playground getPlayground() { return playground_; }
-	
+	public Playground getPlayground() {
+		return playground_;
+	}
+
 	public void setPlayground(Playground playground) {
 		playground_ = playground;
 	}

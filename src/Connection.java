@@ -10,6 +10,8 @@ interface ConnectionListenerI {
 }
 
 public class Connection {
+	private static Logger logger = new Logger("Connection");
+
 	public Connection(SocketChannel socket) {
 		socket_ = socket;
 		try {
@@ -51,13 +53,13 @@ public class Connection {
 	public void write(Message msg) {
 		msg.getBuffer().rewind();
 		try {
-			System.out.format("Connection::write() size[%s] remote[%s] %s\n", msg.getBuffer().remaining(),
-					getRemoteAddress(), msg);
+			logger.log("write",
+					String.format("size[%s] remote[%s] %s", msg.getBuffer().remaining(), getRemoteAddress(), msg));
 			while (msg.getBuffer().hasRemaining()) {
 				socket_.write(msg.getBuffer());
 			}
 		} catch (Exception e) {
-			System.out.println("Connection::write() failed");
+			logger.log("write", "write() failed");
 		}
 	}
 
@@ -72,16 +74,16 @@ public class Connection {
 		if (num == 0) {
 			return;
 		} else if (num == -1) {
-			System.out.format("Connection::read() connection closed by remote[%s]\n", getRemoteAddress());
+			logger.log("read", String.format("connection closed by remote[%s]", getRemoteAddress()));
 			if (listener_ != null)
 				listener_.onDisconnected(this);
 		} else {
-			System.out.format("Connection::read() size[%s] remote[%s]\n", num, getRemoteAddress());
+			logger.log("read", String.format("size[%s] remote[%s]", num, getRemoteAddress()));
 
 			read_buffer_.rewind();
 			while (read_buffer_.position() < num) {
 				int message_len = read_buffer_.getInt();
-				System.out.format("Connection::read() message_len[%s]\n", message_len);
+				logger.log("read", String.format("message_len[%s]", message_len));
 				if (message_len == 0 || message_len + read_buffer_.position() - 4 > num)
 					break;
 
@@ -102,7 +104,7 @@ public class Connection {
 				read_buffer_.rewind();
 			}
 
-			System.out.format("Connection::read() buffer_position[%s]\n", read_buffer_.position());
+			logger.log("read", String.format("buffer_position[%s]", read_buffer_.position()));
 		}
 	}
 
