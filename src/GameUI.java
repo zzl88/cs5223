@@ -68,7 +68,7 @@ public class GameUI extends JFrame implements PlaygroundListenerI {
 					playerListPanel.add(playerInfoPanel);
 				}
 				board.update(players);
-				// revalidate();
+				revalidate();
 			}
 		});
 	}

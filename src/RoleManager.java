@@ -283,13 +283,15 @@ class PlayerManager extends RoleManager {
 		for (TrackerPeerInfo peer : info_.getPeers()) {
 			logger.log("handle", String.format("    peer host[%s] port[%s]", peer.host, peer.listening_port));
 		}
-		if (player_states_ != null) {
-			player_states_.consolidate(info_);
-		}
-
+		
 		if (playground_ == null) {
 			playground_ = new Playground(info_.getN(), info_.getK());
 			gm_.startGUI(info_.getN());
+		}
+		
+		if (player_states_ != null) {
+			player_states_.consolidate(info_);
+			gm_.updateGUI(player_states_);
 		}
 
 		if (info_.getPeers().isEmpty()) {
