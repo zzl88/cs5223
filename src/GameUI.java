@@ -7,35 +7,32 @@ public class GameUI extends JFrame implements PlaygroundListenerI {
 
 	GameInfoPanel infoPanel;
 	final JPanel playerListPanel = new JPanel();
-	ControlPanel controlPanel = new ControlPanel();
 	GameBoard board;
 
 	public GameUI(int N, String player_id) {
 		super("Maze Game");
-		setSize(420 + 37 * N, 220 + 37 * N);
+		final int cell_size = 30;
+		
+		setSize(260 + cell_size * N, 90 + cell_size * N);
 		setResizable(false);
 
-		board = new GameBoard(N, 37 * N, 37 * N);
+		board = new GameBoard(N, cell_size * N, cell_size * N);
 		infoPanel = new GameInfoPanel(player_id);
 
 		infoPanel.setBackground(Color.CYAN);
 		playerListPanel.setBackground(Color.BLUE);
-		controlPanel.setBackground(Color.green);
 
-		infoPanel.setSize(420 + 37 * N, 100);
-		playerListPanel.setSize(200, 20 + 37 * N);
-		controlPanel.setSize(420 + 37 * N, 100);
+		infoPanel.setSize(260 + cell_size * N, 30);
+		playerListPanel.setSize(200, 20 + cell_size * N);
 
 		add(infoPanel);
 		add(playerListPanel);
 		add(board);
-		add(controlPanel);
 
 		getContentPane().setLayout(null);
 		infoPanel.setLocation(0, 0);
-		playerListPanel.setLocation(220 + 37 * N, 100);
-		board.setLocation(110, 110);
-		controlPanel.setLocation(0, 120 + 37 * N);
+		playerListPanel.setLocation(60 + cell_size * N, 30);
+		board.setLocation(30, 40);
 
 		setVisible(true);
 		setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
