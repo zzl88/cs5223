@@ -13,20 +13,6 @@ interface ServerSocketListenerI {
 	public abstract void onAccepted(Connection connection);
 }
 
-class SelectorCmd {
-	enum Type {
-		kAdd, kRemove
-	}
-
-	public SelectorCmd(Type type, Connection connection) {
-		this.type = type;
-		this.connection = connection;
-	}
-
-	Connection connection;
-	Type type;
-}
-
 public class ConnectionManager implements Runnable {
 	private static Logger logger = new Logger("ConnectionManager");
 
@@ -34,7 +20,7 @@ public class ConnectionManager implements Runnable {
 		listening_port_ = port;
 		listener_ = listener;
 		running_ = true;
-		selector_cmds_ = new ArrayList<SelectorCmd>();
+		cmds_ = new ArrayList<Runnable>();
 	}
 
 	public String getLocalHost() {
@@ -88,8 +74,18 @@ public class ConnectionManager implements Runnable {
 					socket.getRemoteAddress()));
 
 			Connection connection = new Connection(socket);
-			synchronized (selector_cmds_) {
-				selector_cmds_.add(new SelectorCmd(SelectorCmd.Type.kAdd, connection));
+			synchronized (cmds_) {
+				cmds_.add(new Runnable() {
+					public void run() {
+						try {
+							SelectionKey conn_key = connection.getSocket().register(selector_, SelectionKey.OP_READ);
+							logger.log("run", "registered");
+							conn_key.attach(connection);
+						} catch (ClosedChannelException e) {
+							e.printStackTrace();
+						}
+					}
+				});
 			}
 			selector_.wakeup();
 			return connection;
@@ -101,8 +97,20 @@ public class ConnectionManager implements Runnable {
 	}
 
 	public void close(Connection connection) {
-		synchronized (selector_cmds_) {
-			selector_cmds_.add(new SelectorCmd(SelectorCmd.Type.kRemove, connection));
+		synchronized (cmds_) {
+			cmds_.add(new Runnable() {
+				public void run() {
+					try {
+						SelectionKey key = connection.getSocket().keyFor(selector_);
+						key.attach(null);
+						key.cancel();
+						connection.getSocket().close();
+						logger.log("run", "unregistered");
+					} catch (IOException e) {
+						e.printStackTrace();
+					}
+				}
+			});
 		}
 		selector_.wakeup();
 	}
@@ -129,33 +137,11 @@ public class ConnectionManager implements Runnable {
 			}
 			selector_.selectedKeys().clear();
 
-			synchronized (selector_cmds_) {
-				for (SelectorCmd cmd : selector_cmds_) {
-					SocketChannel socket = cmd.connection.getSocket();
-					switch (cmd.type) {
-					case kAdd:
-						try {
-							SelectionKey conn_key = socket.register(selector_, SelectionKey.OP_READ);
-							logger.log("run", "registered");
-							conn_key.attach(cmd.connection);
-						} catch (ClosedChannelException e) {
-							e.printStackTrace();
-						}
-						break;
-					case kRemove:
-						try {
-							SelectionKey key = cmd.connection.getSocket().keyFor(selector_);
-							key.attach(null);
-							key.cancel();
-							cmd.connection.getSocket().close();
-							logger.log("run", "unregistered");
-						} catch (IOException e) {
-							e.printStackTrace();
-						}
-						break;
-					}
+			synchronized (cmds_) {
+				for (Runnable cmd : cmds_) {
+					cmd.run();
 				}
-				selector_cmds_.clear();
+				cmds_.clear();
 			}
 		}
 
@@ -195,7 +181,7 @@ public class ConnectionManager implements Runnable {
 	private ServerSocketListenerI listener_;
 	private Selector selector_;
 
-	private ArrayList<SelectorCmd> selector_cmds_;
+	private ArrayList<Runnable> cmds_;
 
 	private volatile boolean running_;
 	private Thread thread_;
